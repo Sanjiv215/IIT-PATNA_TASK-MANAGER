@@ -275,8 +275,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <h4 class="task-title">${escapeHtml(task.title)}</h4>
           </div>
           <div class="task-badges">
-            <span class="badge ${priorityClass}">${escapeHtml(task.priority)}</span>
-            <span class="badge ${statusClass}">${escapeHtml(task.status)}</span>
+            <span class="task-priority-label">
+              <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
+              ${escapeHtml(task.priority)}
+            </span>
           </div>
         </div>
 
@@ -284,11 +286,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="task-card-footer">
           <div class="task-due-tag ${dueInfo.className}">
-            <span>🗓️</span> <span>${escapeHtml(dueInfo.text)}</span>
+            <span>${escapeHtml(dueInfo.text)}</span>
           </div>
           <div class="task-card-actions">
-            <button class="btn btn-secondary btn-sm edit-task-btn" title="Edit task">✏️ Edit</button>
-            <button class="btn btn-danger btn-sm delete-task-btn" title="Delete task">🗑️ Delete</button>
+            <button class="btn btn-secondary btn-sm edit-task-btn" title="Edit task">Edit</button>
+            <button class="btn btn-danger btn-sm delete-task-btn" title="Delete task">Delete</button>
           </div>
         </div>
       `;
@@ -411,7 +413,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <input type="checkbox" class="task-custom-checkbox" ${task.status === "Completed" ? "checked" : ""}>
             <span class="task-title" style="font-size:0.88rem;">${escapeHtml(task.title)}</span>
           </div>
-          <span class="badge badge-${task.priority.toLowerCase()}">${escapeHtml(task.priority)}</span>
+          <span class="task-priority-label">
+            <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
+            ${escapeHtml(task.priority)}
+          </span>
         </div>
       `;
 
@@ -525,7 +530,10 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="reminder-item-title">${escapeHtml(item.title)}</span>
         <div class="reminder-item-meta">
           <span class="reminder-reason-tag">${escapeHtml(item.reminder_reason)}</span>
-          <span class="badge badge-${item.priority.toLowerCase()}">${escapeHtml(item.priority)}</span>
+          <span class="task-priority-label">
+            <span class="priority-dot dot-${item.priority.toLowerCase()}"></span>
+            ${escapeHtml(item.priority)}
+          </span>
         </div>
       `;
       el.addEventListener("click", () => {
@@ -560,7 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function openTaskModal(task = null) {
     taskForm.reset();
     if (task) {
-      modalTitle.textContent = "✏️ Edit Task";
+      modalTitle.textContent = "Edit Task";
       formTaskId.value = task.id;
       formTitle.value = task.title;
       formDesc.value = task.description || "";
@@ -570,7 +578,7 @@ document.addEventListener("DOMContentLoaded", () => {
       formStatus.value = task.status;
       formStatusGroup.style.display = "block";
     } else {
-      modalTitle.textContent = "➕ Add New Task";
+      modalTitle.textContent = "Add New Task";
       formTaskId.value = "";
       formPriority.value = "Medium";
       formReminder.value = "none";

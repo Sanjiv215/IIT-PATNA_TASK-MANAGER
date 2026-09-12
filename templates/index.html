@@ -24,13 +24,13 @@
       <!-- Center View Switcher Tabs -->
       <nav class="nav-view-tabs">
         <button type="button" class="nav-tab-btn active" data-view="tasks">
-          <span>📋 Tasks</span>
+          <span>Tasks</span>
         </button>
         <button type="button" class="nav-tab-btn" data-view="calendar">
-          <span>📅 Calendar</span>
+          <span>Calendar</span>
         </button>
         <button type="button" class="nav-tab-btn" data-view="progress">
-          <span>📈 Progress</span>
+          <span>Progress</span>
         </button>
       </nav>
 
@@ -44,7 +44,7 @@
 
           <div class="reminders-dropdown" id="reminders-dropdown" style="display:none;">
             <div class="reminders-dropdown-header">
-              <h4>🔔 Upcoming & Overdue Deadlines</h4>
+              <h4>Upcoming & Overdue Deadlines</h4>
               <button type="button" class="btn-enable-notify" id="btn-request-browser-notify" title="Enable browser push notifications">
                 Enable Desktop Alerts
               </button>
@@ -66,7 +66,7 @@
             <span class="user-email">{{ user_email }}</span>
           </div>
           <a href="/logout" class="btn-logout" title="Log Out">
-            <span>🚪 Logout</span>
+            <span>Log out</span>
           </a>
         </div>
       </div>
@@ -78,7 +78,7 @@
     <!-- Header Sub-Bar with Date & Welcome -->
     <div class="dashboard-banner">
       <div class="banner-text">
-        <h2>Welcome back, {{ user_name }} 👋</h2>
+        <h2>Welcome back, {{ user_name }}</h2>
         <p class="banner-subtext" id="banner-subtext">Manage your assignments, track learning analytics, and stay ahead of deadlines.</p>
       </div>
       <div class="current-date-badge" id="current-date-display"></div>
@@ -278,7 +278,7 @@
       <!-- 7-Day Completion Chart Card -->
       <div class="card progress-chart-card">
         <div class="chart-header">
-          <h4>📊 7-Day Completion Velocity</h4>
+          <h4>7-Day Completion Velocity</h4>
           <span class="chart-subtitle">Tasks completed per day over the last week</span>
         </div>
         <div class="activity-chart-container" id="activity-chart-container">
@@ -292,7 +292,7 @@
   <div id="task-modal" class="modal-backdrop" style="display:none;">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3 id="modal-title">➕ Add New Task</h3>
+        <h3 id="modal-title">Add New Task</h3>
         <button type="button" class="modal-close-btn" id="modal-close-btn" title="Close">&times;</button>
       </div>
 
