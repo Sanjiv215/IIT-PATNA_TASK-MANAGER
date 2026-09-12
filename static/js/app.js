@@ -27,6 +27,22 @@ document.addEventListener("DOMContentLoaded", () => {
     progress: document.getElementById("view-progress")
   };
   const currentDateDisplay = document.getElementById("current-date-display");
+  const dashboardViewTitle = document.getElementById("dashboard-view-title");
+  const errorBanner = document.getElementById("error-banner");
+  const errorBannerText = document.getElementById("error-banner-text");
+
+  function showErrorBanner(msg = "Unable to load tasks") {
+    if (errorBanner) {
+      if (errorBannerText) errorBannerText.textContent = msg;
+      errorBanner.style.display = "flex";
+    }
+  }
+
+  function hideErrorBanner() {
+    if (errorBanner) {
+      errorBanner.style.display = "none";
+    }
+  }
 
   // DOM: Reminders
   const bellToggleBtn = document.getElementById("bell-toggle-btn");
@@ -38,8 +54,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // DOM: Tasks Feed & Stats
   const tasksContainer = document.getElementById("tasks-container");
   const emptyState = document.getElementById("empty-state");
-  const emptyStateAddBtn = document.getElementById("empty-state-add-btn");
-  const visibleCountBadge = document.getElementById("visible-count");
   const statTotal = document.getElementById("stat-total");
   const statPending = document.getElementById("stat-pending");
   const statCompleted = document.getElementById("stat-completed");
@@ -89,7 +103,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalCloseBtn = document.getElementById("modal-close-btn");
   const modalCancelBtn = document.getElementById("modal-cancel-btn");
   const openNewTaskModalBtn = document.getElementById("open-new-task-modal-btn");
-  const quickAddBtn = document.getElementById("btn-quick-add");
 
   // -----------------------------------------------------------------
   // Initial Setup
@@ -103,8 +116,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderCurrentDate() {
     if (!currentDateDisplay) return;
-    const options = { weekday: "short", month: "short", day: "numeric", year: "numeric" };
-    currentDateDisplay.textContent = `📅 ${now.toLocaleDateString(undefined, options)}`;
+    const day = now.getDate();
+    const month = now.toLocaleDateString(undefined, { month: "short" });
+    const year = now.getFullYear();
+    currentDateDisplay.textContent = `${day} ${month} ${year}`;
   }
 
   // -----------------------------------------------------------------
@@ -122,6 +137,12 @@ document.addEventListener("DOMContentLoaded", () => {
         viewPanels[key].style.display = key === targetView ? "flex" : "none";
       }
     });
+
+    if (dashboardViewTitle) {
+      if (targetView === "tasks") dashboardViewTitle.textContent = "Daily Tasks";
+      else if (targetView === "calendar") dashboardViewTitle.textContent = "Academic Calendar";
+      else if (targetView === "progress") dashboardViewTitle.textContent = "Learning Analytics";
+    }
 
     if (targetView === "tasks") {
       fetchTasksAndStats();
@@ -162,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function formatDueDate(dateString) {
-    if (!dateString) return { text: "No deadline", className: "" };
+    if (!dateString) return { text: "", className: "" };
 
     const due = new Date(dateString + "T00:00:00");
     const today = new Date();
@@ -196,11 +217,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error("Failed to load tasks");
       const allTasks = await res.json();
       tasks = allTasks;
+      hideErrorBanner();
       renderStats(allTasks);
       applyCurrentFilters();
     } catch (err) {
       console.error(err);
-      showToast("Could not load tasks from server", "error");
+      showErrorBanner("Unable to load tasks");
     }
   }
 
@@ -250,7 +272,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderTasks(taskList) {
     tasksContainer.innerHTML = "";
-    visibleCountBadge.textContent = `${taskList.length} ${taskList.length === 1 ? "task" : "tasks"}`;
+    if (visibleCountBadge) {
+      visibleCountBadge.textContent = `${taskList.length} ${taskList.length === 1 ? "task" : "tasks"}`;
+    }
 
     if (taskList.length === 0) {
       emptyState.style.display = "block";

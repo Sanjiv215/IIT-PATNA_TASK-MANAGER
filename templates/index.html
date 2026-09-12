@@ -10,15 +10,12 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- Modern Top Navigation Bar -->
+  <!-- Modern Top Navigation Bar matching reference -->
   <header class="navbar">
     <div class="nav-container">
       <div class="nav-brand">
-        <span class="nav-logo">🎓</span>
-        <div class="nav-title-group">
-          <span class="nav-app-name">Student Task Manager</span>
-          <span class="nav-workspace-tag">Academic Workspace</span>
-        </div>
+        <div class="brand-badge">T</div>
+        <span class="brand-wordmark">TASK</span>
       </div>
 
       <!-- Center View Switcher Tabs -->
@@ -55,19 +52,10 @@
           </div>
         </div>
 
-        <button type="button" class="btn btn-primary btn-nav-action" id="open-new-task-modal-btn">
-          <span>+ New Task</span>
-        </button>
-
-        <div class="user-menu-pill">
-          <div class="user-avatar">{{ user_name[0] | upper }}</div>
-          <div class="user-details">
-            <span class="user-name">{{ user_name }}</span>
-            <span class="user-email">{{ user_email }}</span>
-          </div>
-          <a href="/logout" class="btn-logout" title="Log Out">
-            <span>Log out</span>
-          </a>
+        <div class="nav-user-area">
+          <span class="user-display-name">{{ user_name }}</span>
+          <div class="user-avatar-circle">{{ user_name[0] | upper }}</div>
+          <a href="/logout" class="btn-pill-logout" title="Log Out">Logout</a>
         </div>
       </div>
     </div>
@@ -75,54 +63,26 @@
 
   <!-- Main Content Layout Container -->
   <div class="app-layout">
-    <!-- Header Sub-Bar with Date & Welcome -->
-    <div class="dashboard-banner">
-      <div class="banner-text">
-        <h2>Welcome back, {{ user_name }}</h2>
-        <p class="banner-subtext" id="banner-subtext">Manage your assignments, track learning analytics, and stay ahead of deadlines.</p>
+    <!-- Header Row matching reference design -->
+    <div class="dashboard-header-row">
+      <div class="dashboard-title-group">
+        <div class="dashboard-date-label" id="current-date-display">12 Sep 2026</div>
+        <h1 class="dashboard-main-title" id="dashboard-view-title">Daily Tasks</h1>
       </div>
-      <div class="current-date-badge" id="current-date-display"></div>
+      <button type="button" class="btn-pill-primary" id="open-new-task-modal-btn">
+        <span>+ Add Task</span>
+      </button>
+    </div>
+
+    <!-- Error Banner (styled to match reference) -->
+    <div id="error-banner" class="error-banner" style="display: none;">
+      <span id="error-banner-text">Unable to load tasks</span>
     </div>
 
     <!-- ========================================================= -->
     <!-- VIEW 1: TASKS FEED (Default) -->
     <!-- ========================================================= -->
     <div id="view-tasks" class="view-panel active">
-      <!-- Summary Statistics Metric Strip -->
-      <section class="stats-strip">
-        <div class="stat-card stat-total">
-          <div class="stat-icon-wrapper">📋</div>
-          <div class="stat-content">
-            <span class="stat-label">Total Coursework</span>
-            <span class="stat-value" id="stat-total">0</span>
-          </div>
-        </div>
-
-        <div class="stat-card stat-pending">
-          <div class="stat-icon-wrapper">⏳</div>
-          <div class="stat-content">
-            <span class="stat-label">Pending</span>
-            <span class="stat-value" id="stat-pending">0</span>
-          </div>
-        </div>
-
-        <div class="stat-card stat-completed">
-          <div class="stat-icon-wrapper">✅</div>
-          <div class="stat-content">
-            <span class="stat-label">Completed</span>
-            <span class="stat-value" id="stat-completed">0</span>
-          </div>
-        </div>
-
-        <div class="stat-card stat-overdue">
-          <div class="stat-icon-wrapper">🔥</div>
-          <div class="stat-content">
-            <span class="stat-label">Overdue / Urgent</span>
-            <span class="stat-value" id="stat-overdue">0</span>
-          </div>
-        </div>
-      </section>
-
       <!-- Toolbar: Search & Segmented Filtering -->
       <section class="toolbar-section card">
         <div class="search-box">
@@ -159,27 +119,14 @@
 
       <!-- Task List Feed -->
       <section class="task-feed-section">
-        <div class="feed-header">
-          <div class="feed-title-wrap">
-            <h3>Your Tasks</h3>
-            <span class="task-counter-pill" id="visible-count">0 tasks</span>
-          </div>
-          <div class="feed-quick-action">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-add">+ Add Task</button>
-          </div>
-        </div>
-
         <!-- Dynamic Tasks Container -->
         <div id="tasks-container" class="tasks-grid">
           <!-- Rendered via JavaScript -->
         </div>
 
-        <!-- Empty State Graphic -->
-        <div id="empty-state" class="empty-state-card" style="display:none;">
-          <div class="empty-state-illustration">📚</div>
-          <h4 id="empty-state-title">No tasks found</h4>
-          <p id="empty-state-desc">You are all caught up! Click "+ New Task" to add your next assignment or exam deadline.</p>
-          <button type="button" class="btn btn-primary" id="empty-state-add-btn">+ Create Your First Task</button>
+        <!-- Empty State Graphic (Matching reference design) -->
+        <div id="empty-state" class="empty-state-box" style="display:none;">
+          <p class="empty-state-msg">No tasks added for today.</p>
         </div>
       </section>
     </div>
