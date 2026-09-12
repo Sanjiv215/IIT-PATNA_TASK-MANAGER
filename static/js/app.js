@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // -----------------------------------------------------------------
   function init() {
     renderCurrentDate();
-    fetchTasks();
+    fetchTasksAndStats();
     attachEventListeners();
   }
 
@@ -115,66 +115,62 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // API Calls
+  // Stats Calculation Helper
   // -----------------------------------------------------------------
-  async function fetchTasks() {
+  function renderStats(allTasks) {
+    const total = allTasks.length;
+    const completed = allTasks.filter(t => t.status === "Completed").length;
+    const pending = total - completed;
+    const high = allTasks.filter(t => t.priority === "High" && t.status === "Pending").length;
+
+    statTotal.textContent = total;
+    statPending.textContent = pending;
+    statCompleted.textContent = completed;
+    statHigh.textContent = high;
+  }
+
+  // -----------------------------------------------------------------
+  // API Calls & Fetching
+  // -----------------------------------------------------------------
+  async function fetchTasksAndStats() {
     try {
-      let url = "/api/tasks";
-      const params = new URLSearchParams();
+      // 1. Fetch complete tasks for statistics and base list
+      const res = await fetch("/api/tasks");
+      if (!res.ok) throw new Error("Failed to load tasks");
+      const allTasks = await res.json();
+      tasks = allTasks;
+      renderStats(allTasks);
 
-      if (searchQuery.trim()) {
-        url = "/api/tasks/search";
-        params.append("q", searchQuery.trim());
-      } else {
-        if (activeStatusFilter) params.append("status", activeStatusFilter);
-        if (activePriorityFilter) params.append("priority", activePriorityFilter);
-      }
-
-      const queryString = params.toString();
-      const finalUrl = queryString ? `${url}?${queryString}` : url;
-
-      const response = await fetch(finalUrl);
-      if (!response.ok) throw new Error("Failed to load tasks");
-      tasks = await response.json();
-
-      // If we used search endpoint, client-side apply any active status/priority filter
-      let displayedTasks = tasks;
-      if (searchQuery.trim()) {
-        if (activeStatusFilter) {
-          displayedTasks = displayedTasks.filter(t => t.status === activeStatusFilter);
-        }
-        if (activePriorityFilter) {
-          displayedTasks = displayedTasks.filter(t => t.priority === activePriorityFilter);
-        }
-      }
-
-      renderTasks(displayedTasks);
-      updateOverallStats();
+      // 2. Filter / Search locally or via endpoint
+      applyCurrentFilters();
     } catch (err) {
       console.error(err);
       showToast("Could not load tasks from server", "error");
     }
   }
 
-  async function updateOverallStats() {
-    try {
-      // Fetch all unfiltered tasks to keep stats accurate
-      const res = await fetch("/api/tasks");
-      if (!res.ok) return;
-      const allTasks = await res.json();
+  async function applyCurrentFilters() {
+    let displayedTasks = tasks;
 
-      const total = allTasks.length;
-      const completed = allTasks.filter(t => t.status === "Completed").length;
-      const pending = total - completed;
-      const high = allTasks.filter(t => t.priority === "High" && t.status === "Pending").length;
-
-      statTotal.textContent = total;
-      statPending.textContent = pending;
-      statCompleted.textContent = completed;
-      statHigh.textContent = high;
-    } catch (e) {
-      console.error("Error updating stats", e);
+    if (searchQuery.trim()) {
+      try {
+        const res = await fetch(`/api/tasks/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        if (res.ok) {
+          displayedTasks = await res.json();
+        }
+      } catch (e) {
+        console.error("Search error", e);
+      }
     }
+
+    if (activeStatusFilter) {
+      displayedTasks = displayedTasks.filter(t => t.status === activeStatusFilter);
+    }
+    if (activePriorityFilter) {
+      displayedTasks = displayedTasks.filter(t => t.priority === activePriorityFilter);
+    }
+
+    renderTasks(displayedTasks);
   }
 
   // -----------------------------------------------------------------
@@ -269,7 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showToast("Task added successfully!", "success");
       addTaskForm.reset();
-      fetchTasks();
+      fetchTasksAndStats();
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -287,10 +283,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok) throw new Error(data.error || "Failed to update status");
 
       showToast(data.message, "success");
-      fetchTasks();
+      fetchTasksAndStats();
     } catch (err) {
       showToast(err.message, "error");
-      fetchTasks(); // revert checkbox UI
+      fetchTasksAndStats();
     }
   }
 
@@ -307,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok) throw new Error(data.error || "Failed to delete task");
 
       showToast("Task deleted successfully", "success");
-      fetchTasks();
+      fetchTasksAndStats();
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -353,7 +349,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showToast("Task updated successfully!", "success");
       closeEditModal();
-      fetchTasks();
+      fetchTasksAndStats();
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -370,7 +366,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       clearTimeout(searchDebounceTimeout);
       searchDebounceTimeout = setTimeout(() => {
-        fetchTasks();
+        applyCurrentFilters();
       }, 250);
     });
 
@@ -378,7 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
       searchInput.value = "";
       searchQuery = "";
       clearSearchBtn.style.display = "none";
-      fetchTasks();
+      applyCurrentFilters();
     });
 
     // Status Segmented Controls
@@ -387,7 +383,7 @@ document.addEventListener("DOMContentLoaded", () => {
         statusFilterButtons.forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activeStatusFilter = btn.getAttribute("data-status");
-        fetchTasks();
+        applyCurrentFilters();
       });
     });
 
@@ -397,7 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
         priorityFilterButtons.forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activePriorityFilter = btn.getAttribute("data-priority");
-        fetchTasks();
+        applyCurrentFilters();
       });
     });
 
@@ -413,7 +409,7 @@ document.addEventListener("DOMContentLoaded", () => {
       activePriorityFilter = "";
       priorityFilterButtons.forEach(b => b.classList.toggle("active", b.getAttribute("data-priority") === ""));
 
-      fetchTasks();
+      applyCurrentFilters();
     });
 
     // Modal close controls

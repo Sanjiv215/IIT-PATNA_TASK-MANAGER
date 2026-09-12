@@ -4,11 +4,15 @@ Provides endpoints for CRUD operations, searching, filtering, and serving the fr
 """
 
 import os
-from flask import Flask, render_template, request, jsonify, abort
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify
 from database import get_db, close_db, init_db, DEFAULT_DB_PATH
 
 VALID_PRIORITIES = {"Low", "Medium", "High"}
 VALID_STATUSES = {"Pending", "Completed"}
+MAX_TITLE_LENGTH = 150
+MAX_DESCRIPTION_LENGTH = 2000
+DEFAULT_ORDER_BY = "ORDER BY CASE status WHEN 'Pending' THEN 1 ELSE 2 END, due_date ASC, id DESC"
 
 
 def row_to_dict(row):
@@ -26,6 +30,76 @@ def row_to_dict(row):
     }
 
 
+def validate_and_parse_task_payload(data, is_update=False, existing=None):
+    """
+    Validates and cleans input JSON payload for creating or updating a task.
+    Returns (cleaned_data, error_message). If invalid, cleaned_data is None.
+    """
+    if not isinstance(data, dict):
+        return None, "Invalid or missing JSON payload."
+
+    # 1. Title validation
+    if "title" in data or not is_update:
+        raw_title = data.get("title")
+        if not isinstance(raw_title, str) or not raw_title.strip():
+            return None, "Task title is required and cannot be empty."
+        title = raw_title.strip()
+        if len(title) > MAX_TITLE_LENGTH:
+            return None, f"Task title exceeds maximum allowed length of {MAX_TITLE_LENGTH} characters."
+    else:
+        title = existing["title"]
+
+    # 2. Description validation
+    if "description" in data:
+        raw_desc = data.get("description")
+        description = str(raw_desc).strip() if raw_desc is not None else ""
+        if len(description) > MAX_DESCRIPTION_LENGTH:
+            return None, f"Description exceeds maximum allowed length of {MAX_DESCRIPTION_LENGTH} characters."
+    else:
+        description = existing["description"] if is_update and existing else ""
+
+    # 3. Priority validation
+    if "priority" in data:
+        priority = data.get("priority")
+        if priority not in VALID_PRIORITIES:
+            return None, f"Invalid priority '{priority}'. Allowed: {sorted(list(VALID_PRIORITIES))}"
+    else:
+        priority = existing["priority"] if is_update and existing else "Medium"
+
+    # 4. Status validation
+    if "status" in data:
+        status = data.get("status")
+        if status not in VALID_STATUSES:
+            return None, f"Invalid status '{status}'. Allowed: {sorted(list(VALID_STATUSES))}"
+    else:
+        status = existing["status"] if is_update and existing else "Pending"
+
+    # 5. Due Date validation
+    if "due_date" in data:
+        raw_due_date = data.get("due_date")
+        if raw_due_date is not None and str(raw_due_date).strip() != "":
+            due_date_str = str(raw_due_date).strip()
+            try:
+                # Ensure strict YYYY-MM-DD format
+                datetime.strptime(due_date_str, "%Y-%m-%d")
+                due_date = due_date_str
+            except ValueError:
+                return None, f"Invalid due_date format '{due_date_str}'. Expected 'YYYY-MM-DD'."
+        else:
+            due_date = None
+    else:
+        due_date = existing["due_date"] if is_update and existing else None
+
+    cleaned = {
+        "title": title,
+        "description": description,
+        "priority": priority,
+        "due_date": due_date,
+        "status": status,
+    }
+    return cleaned, None
+
+
 def create_app(test_config=None):
     """
     Application factory pattern.
@@ -33,10 +107,10 @@ def create_app(test_config=None):
     """
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
-    # Default configuration
+    # Configuration
     app.config.from_mapping(
-        DATABASE=DEFAULT_DB_PATH,
-        SECRET_KEY="dev-secret-key-student-task-manager",
+        DATABASE=os.environ.get("DATABASE_PATH", DEFAULT_DB_PATH),
+        SECRET_KEY=os.environ.get("SECRET_KEY", "dev-secret-key-student-task-manager"),
     )
 
     if test_config is not None:
@@ -75,17 +149,17 @@ def create_app(test_config=None):
 
         if status_filter:
             if status_filter not in VALID_STATUSES:
-                return jsonify({"error": f"Invalid status filter. Allowed: {list(VALID_STATUSES)}"}), 400
+                return jsonify({"error": f"Invalid status filter. Allowed: {sorted(list(VALID_STATUSES))}"}), 400
             query += " AND status = ?"
             params.append(status_filter)
 
         if priority_filter:
             if priority_filter not in VALID_PRIORITIES:
-                return jsonify({"error": f"Invalid priority filter. Allowed: {list(VALID_PRIORITIES)}"}), 400
+                return jsonify({"error": f"Invalid priority filter. Allowed: {sorted(list(VALID_PRIORITIES))}"}), 400
             query += " AND priority = ?"
             params.append(priority_filter)
 
-        query += " ORDER BY CASE status WHEN 'Pending' THEN 1 ELSE 2 END, due_date ASC, id DESC"
+        query += f" {DEFAULT_ORDER_BY}"
 
         db = db_conn()
         cursor = db.cursor()
@@ -113,33 +187,15 @@ def create_app(test_config=None):
         """
         Create a new student task.
         Request JSON:
-          - title (required, non-empty)
-          - description (optional)
+          - title (required, non-empty, max 150 chars)
+          - description (optional, max 2000 chars)
           - priority (optional, default 'Medium')
           - due_date (optional, YYYY-MM-DD)
         """
         data = request.get_json(silent=True)
-        if not data:
-            return jsonify({"error": "Invalid or missing JSON payload."}), 400
-
-        title = data.get("title", "").strip() if isinstance(data.get("title"), str) else ""
-        if not title:
-            return jsonify({"error": "Task title is required and cannot be empty."}), 400
-
-        description = data.get("description", "").strip() if isinstance(data.get("description"), str) else ""
-        priority = data.get("priority", "Medium")
-        if priority not in VALID_PRIORITIES:
-            return jsonify({"error": f"Invalid priority '{priority}'. Allowed: {sorted(list(VALID_PRIORITIES))}"}), 400
-
-        due_date = data.get("due_date")
-        if due_date is not None:
-            due_date = str(due_date).strip()
-            if due_date == "":
-                due_date = None
-
-        status = data.get("status", "Pending")
-        if status not in VALID_STATUSES:
-            return jsonify({"error": f"Invalid status '{status}'. Allowed: {sorted(list(VALID_STATUSES))}"}), 400
+        cleaned, error = validate_and_parse_task_payload(data, is_update=False)
+        if error:
+            return jsonify({"error": error}), 400
 
         db = db_conn()
         cursor = db.cursor()
@@ -148,7 +204,7 @@ def create_app(test_config=None):
             INSERT INTO tasks (title, description, priority, due_date, status)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (title, description, priority, due_date, status)
+            (cleaned["title"], cleaned["description"], cleaned["priority"], cleaned["due_date"], cleaned["status"])
         )
         db.commit()
         new_id = cursor.lastrowid
@@ -180,28 +236,9 @@ def create_app(test_config=None):
             return jsonify({"error": f"Task with ID {task_id} not found."}), 404
 
         data = request.get_json(silent=True)
-        if not data:
-            return jsonify({"error": "Invalid or missing JSON payload."}), 400
-
-        title = data.get("title", "").strip() if isinstance(data.get("title"), str) else ""
-        if not title:
-            return jsonify({"error": "Task title cannot be empty."}), 400
-
-        description = data.get("description", "").strip() if isinstance(data.get("description"), str) else ""
-        
-        priority = data.get("priority", existing["priority"])
-        if priority not in VALID_PRIORITIES:
-            return jsonify({"error": f"Invalid priority '{priority}'. Allowed: {sorted(list(VALID_PRIORITIES))}"}), 400
-
-        status = data.get("status", existing["status"])
-        if status not in VALID_STATUSES:
-            return jsonify({"error": f"Invalid status '{status}'. Allowed: {sorted(list(VALID_STATUSES))}"}), 400
-
-        due_date = data.get("due_date", existing["due_date"])
-        if due_date is not None:
-            due_date = str(due_date).strip()
-            if due_date == "":
-                due_date = None
+        cleaned, error = validate_and_parse_task_payload(data, is_update=True, existing=existing)
+        if error:
+            return jsonify({"error": error}), 400
 
         cursor.execute(
             """
@@ -209,7 +246,7 @@ def create_app(test_config=None):
             SET title = ?, description = ?, priority = ?, due_date = ?, status = ?
             WHERE id = ?
             """,
-            (title, description, priority, due_date, status, task_id)
+            (cleaned["title"], cleaned["description"], cleaned["priority"], cleaned["due_date"], cleaned["status"], task_id)
         )
         db.commit()
 
@@ -284,14 +321,14 @@ def create_app(test_config=None):
 
         if not query_param:
             # If search string is empty, return all tasks
-            cursor.execute("SELECT * FROM tasks ORDER BY CASE status WHEN 'Pending' THEN 1 ELSE 2 END, due_date ASC, id DESC")
+            cursor.execute(f"SELECT * FROM tasks {DEFAULT_ORDER_BY}")
         else:
             search_pattern = f"%{query_param}%"
             cursor.execute(
-                """
+                f"""
                 SELECT * FROM tasks
                 WHERE title LIKE ? OR description LIKE ?
-                ORDER BY CASE status WHEN 'Pending' THEN 1 ELSE 2 END, due_date ASC, id DESC
+                {DEFAULT_ORDER_BY}
                 """,
                 (search_pattern, search_pattern)
             )
@@ -310,5 +347,7 @@ if __name__ == "__main__":
     # Ensure database is initialized before serving
     if not os.path.exists(DEFAULT_DB_PATH):
         init_db()
-    print("Starting Student Task Manager server on http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # Read debug mode safely from environment (defaults to False for safety)
+    debug_mode = os.environ.get("FLASK_DEBUG", "0").lower() in ("1", "true")
+    print(f"Starting Student Task Manager server (debug={debug_mode}) on http://127.0.0.1:5000")
+    app.run(host="127.0.0.1", port=5000, debug=debug_mode)

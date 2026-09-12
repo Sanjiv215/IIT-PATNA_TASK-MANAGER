@@ -45,13 +45,26 @@ def test_create_task_validation_invalid_priority(client):
     assert response.status_code == 400
 
 
+def test_create_task_validation_invalid_due_date(client):
+    """Test validation failure when due_date format is malformed."""
+    response = client.post("/api/tasks", json={"title": "Test Task", "due_date": "not-a-date"})
+    assert response.status_code == 400
+    assert "Invalid due_date format" in response.get_json()["error"]
+
+
+def test_create_task_validation_oversized_title(client):
+    """Test validation failure when title exceeds 150 characters."""
+    oversized_title = "A" * 151
+    response = client.post("/api/tasks", json={"title": oversized_title})
+    assert response.status_code == 400
+    assert "exceeds maximum allowed length" in response.get_json()["error"]
+
+
 def test_get_single_task(client):
     """Test retrieving a single task by ID."""
-    # Create task first
     create_res = client.post("/api/tasks", json={"title": "Read Chapter 4", "priority": "Medium"})
     task_id = create_res.get_json()["task"]["id"]
 
-    # Fetch task
     get_res = client.get(f"/api/tasks/{task_id}")
     assert get_res.status_code == 200
     task = get_res.get_json()
@@ -97,6 +110,15 @@ def test_update_task(client):
     assert updated["title"] == "Finalize Presentation Slides"
     assert updated["priority"] == "High"
     assert updated["description"] == "Added 10 slides and citations"
+
+
+def test_update_task_invalid_payload(client):
+    """Test updating task with invalid priority."""
+    create_res = client.post("/api/tasks", json={"title": "Presentation", "priority": "Medium"})
+    task_id = create_res.get_json()["task"]["id"]
+
+    res = client.put(f"/api/tasks/{task_id}", json={"priority": "Critical"})
+    assert res.status_code == 400
 
 
 def test_toggle_complete_task(client):
