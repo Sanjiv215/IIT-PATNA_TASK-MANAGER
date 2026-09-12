@@ -289,32 +289,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const dueInfo = formatDueDate(task.due_date);
       const isCompleted = task.status === "Completed";
-      const priorityClass = `badge-${task.priority.toLowerCase()}`;
-      const statusClass = `badge-${task.status.toLowerCase()}`;
 
       card.innerHTML = `
         <div class="task-card-header">
-          <div class="task-checkbox-title">
+          <label class="task-checkbox-label">
             <input type="checkbox" class="task-custom-checkbox" ${isCompleted ? "checked" : ""} title="Mark complete/pending">
-            <h4 class="task-title">${escapeHtml(task.title)}</h4>
-          </div>
-          <div class="task-badges">
-            <span class="task-priority-label">
-              <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
-              ${escapeHtml(task.priority)}
-            </span>
-          </div>
-        </div>
-
-        ${task.description ? `<p class="task-description">${escapeHtml(task.description)}</p>` : ""}
-
-        <div class="task-card-footer">
-          <div class="task-due-tag ${dueInfo.className}">
-            <span>${escapeHtml(dueInfo.text)}</span>
-          </div>
-          <div class="task-card-actions">
-            <button class="btn btn-secondary btn-sm edit-task-btn" title="Edit task">Edit</button>
-            <button class="btn btn-danger btn-sm delete-task-btn" title="Delete task">Delete</button>
+          </label>
+          <div class="task-card-main-col">
+            <div class="task-card-title-row">
+              <h4 class="task-title">${escapeHtml(task.title)}</h4>
+              <div class="task-priority-indicator">
+                <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
+                <span>${escapeHtml(task.priority)}</span>
+              </div>
+            </div>
+            ${task.description ? `<p class="task-description">${escapeHtml(task.description)}</p>` : ""}
+            <div class="task-card-footer">
+              ${dueInfo.text ? `<div class="task-due-tag ${dueInfo.className}"><span>${escapeHtml(dueInfo.text)}</span></div>` : `<div></div>`}
+              <div class="task-card-actions">
+                <button type="button" class="btn-action edit-task-btn" title="Edit task">Edit</button>
+                <button type="button" class="btn-action btn-action-danger delete-task-btn" title="Delete task">Delete</button>
+              </div>
+            </div>
           </div>
         </div>
       `;
@@ -760,8 +756,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Modal Triggers
     if (openNewTaskModalBtn) openNewTaskModalBtn.addEventListener("click", () => openTaskModal(null));
-    if (quickAddBtn) quickAddBtn.addEventListener("click", () => openTaskModal(null));
-    if (emptyStateAddBtn) emptyStateAddBtn.addEventListener("click", () => openTaskModal(null));
     if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeTaskModal);
     if (modalCancelBtn) modalCancelBtn.addEventListener("click", closeTaskModal);
     if (taskModal) {
