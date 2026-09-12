@@ -45,6 +45,7 @@ def close_db(e=None):
 def migrate_schema_if_needed(conn):
     """
     Checks if an existing database needs table creation or column migrations.
+    Adds user_id, reminder_offset, and completed_at columns if not present.
     """
     cursor = conn.cursor()
     
@@ -74,15 +75,17 @@ def migrate_schema_if_needed(conn):
                 priority TEXT NOT NULL CHECK(priority IN ('Low', 'Medium', 'High')) DEFAULT 'Medium',
                 due_date TEXT,
                 status TEXT NOT NULL CHECK(status IN ('Pending', 'Completed')) DEFAULT 'Pending',
+                reminder_offset TEXT NOT NULL CHECK(reminder_offset IN ('none', 'same_day', '1_day_before', '2_days_before')) DEFAULT 'none',
+                completed_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
     else:
-        # Check if user_id column exists
+        # Check columns
         cursor.execute("PRAGMA table_info(tasks);")
         columns = [row["name"] for row in cursor.fetchall()]
+        
         if "user_id" not in columns:
-            # Ensure demo user exists
             demo_email = "demo@student.edu"
             cursor.execute("SELECT id FROM users WHERE email = ?", (demo_email,))
             user_row = cursor.fetchone()
@@ -99,12 +102,19 @@ def migrate_schema_if_needed(conn):
             cursor.execute("ALTER TABLE tasks ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;")
             cursor.execute("UPDATE tasks SET user_id = ? WHERE user_id IS NULL;", (demo_user_id,))
 
+        if "reminder_offset" not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN reminder_offset TEXT NOT NULL DEFAULT 'none';")
+
+        if "completed_at" not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP;")
+
     # 3. Create indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at);")
     conn.commit()
 
 

@@ -21,7 +21,40 @@
         </div>
       </div>
 
+      <!-- Center View Switcher Tabs -->
+      <nav class="nav-view-tabs">
+        <button type="button" class="nav-tab-btn active" data-view="tasks">
+          <span>📋 Tasks</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-view="calendar">
+          <span>📅 Calendar</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-view="progress">
+          <span>📈 Progress</span>
+        </button>
+      </nav>
+
       <div class="nav-actions">
+        <!-- In-App Reminders Bell Icon with Dropdown -->
+        <div class="reminders-bell-wrapper">
+          <button type="button" class="btn-icon-bell" id="bell-toggle-btn" title="View Reminders & Deadlines">
+            <span class="bell-icon">🔔</span>
+            <span class="bell-badge" id="reminder-badge" style="display:none;">0</span>
+          </button>
+
+          <div class="reminders-dropdown" id="reminders-dropdown" style="display:none;">
+            <div class="reminders-dropdown-header">
+              <h4>🔔 Upcoming & Overdue Deadlines</h4>
+              <button type="button" class="btn-enable-notify" id="btn-request-browser-notify" title="Enable browser push notifications">
+                Enable Desktop Alerts
+              </button>
+            </div>
+            <div class="reminders-list" id="reminders-list">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
         <button type="button" class="btn btn-primary btn-nav-action" id="open-new-task-modal-btn">
           <span>+ New Task</span>
         </button>
@@ -40,111 +73,219 @@
     </div>
   </header>
 
-  <!-- Main Dashboard Container -->
+  <!-- Main Content Layout Container -->
   <div class="app-layout">
     <!-- Header Sub-Bar with Date & Welcome -->
     <div class="dashboard-banner">
       <div class="banner-text">
         <h2>Welcome back, {{ user_name }} 👋</h2>
-        <p class="banner-subtext">Here is what's on your academic agenda today.</p>
+        <p class="banner-subtext" id="banner-subtext">Manage your assignments, track learning analytics, and stay ahead of deadlines.</p>
       </div>
       <div class="current-date-badge" id="current-date-display"></div>
     </div>
 
-    <!-- Summary Statistics Metric Strip -->
-    <section class="stats-strip">
-      <div class="stat-card stat-total">
-        <div class="stat-icon-wrapper">📋</div>
-        <div class="stat-content">
-          <span class="stat-label">Total Coursework</span>
-          <span class="stat-value" id="stat-total">0</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-pending">
-        <div class="stat-icon-wrapper">⏳</div>
-        <div class="stat-content">
-          <span class="stat-label">Pending</span>
-          <span class="stat-value" id="stat-pending">0</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-completed">
-        <div class="stat-icon-wrapper">✅</div>
-        <div class="stat-content">
-          <span class="stat-label">Completed</span>
-          <span class="stat-value" id="stat-completed">0</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-overdue">
-        <div class="stat-icon-wrapper">🔥</div>
-        <div class="stat-content">
-          <span class="stat-label">Overdue / Urgent</span>
-          <span class="stat-value" id="stat-overdue">0</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Toolbar: Search & Segmented Filtering -->
-    <section class="toolbar-section card">
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="search-input" placeholder="Search tasks by title, course, or keyword..." autocomplete="off">
-        <button type="button" id="clear-search-btn" class="btn-clear-search" title="Clear search" style="display:none;">✕</button>
-      </div>
-
-      <div class="filter-controls-group">
-        <div class="filter-segment-wrapper">
-          <span class="filter-caption">Status:</span>
-          <div class="segmented-control" id="status-filters">
-            <button type="button" class="segment-btn active" data-status="">All</button>
-            <button type="button" class="segment-btn" data-status="Pending">Pending</button>
-            <button type="button" class="segment-btn" data-status="Completed">Completed</button>
+    <!-- ========================================================= -->
+    <!-- VIEW 1: TASKS FEED (Default) -->
+    <!-- ========================================================= -->
+    <div id="view-tasks" class="view-panel active">
+      <!-- Summary Statistics Metric Strip -->
+      <section class="stats-strip">
+        <div class="stat-card stat-total">
+          <div class="stat-icon-wrapper">📋</div>
+          <div class="stat-content">
+            <span class="stat-label">Total Coursework</span>
+            <span class="stat-value" id="stat-total">0</span>
           </div>
         </div>
 
-        <div class="filter-segment-wrapper">
-          <span class="filter-caption">Priority:</span>
-          <div class="segmented-control" id="priority-filters">
-            <button type="button" class="segment-btn active" data-priority="">All</button>
-            <button type="button" class="segment-btn" data-priority="High">High</button>
-            <button type="button" class="segment-btn" data-priority="Medium">Med</button>
-            <button type="button" class="segment-btn" data-priority="Low">Low</button>
+        <div class="stat-card stat-pending">
+          <div class="stat-icon-wrapper">⏳</div>
+          <div class="stat-content">
+            <span class="stat-label">Pending</span>
+            <span class="stat-value" id="stat-pending">0</span>
           </div>
         </div>
 
-        <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-sm" title="Reset all search and filter conditions">
-          Reset Filters
-        </button>
-      </div>
-    </section>
-
-    <!-- Task List Feed -->
-    <section class="task-feed-section">
-      <div class="feed-header">
-        <div class="feed-title-wrap">
-          <h3>Your Tasks</h3>
-          <span class="task-counter-pill" id="visible-count">0 tasks</span>
+        <div class="stat-card stat-completed">
+          <div class="stat-icon-wrapper">✅</div>
+          <div class="stat-content">
+            <span class="stat-label">Completed</span>
+            <span class="stat-value" id="stat-completed">0</span>
+          </div>
         </div>
-        <div class="feed-quick-action">
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-add">+ Add Task</button>
+
+        <div class="stat-card stat-overdue">
+          <div class="stat-icon-wrapper">🔥</div>
+          <div class="stat-content">
+            <span class="stat-label">Overdue / Urgent</span>
+            <span class="stat-value" id="stat-overdue">0</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Toolbar: Search & Segmented Filtering -->
+      <section class="toolbar-section card">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Search tasks by title, course, or keyword..." autocomplete="off">
+          <button type="button" id="clear-search-btn" class="btn-clear-search" title="Clear search" style="display:none;">✕</button>
+        </div>
+
+        <div class="filter-controls-group">
+          <div class="filter-segment-wrapper">
+            <span class="filter-caption">Status:</span>
+            <div class="segmented-control" id="status-filters">
+              <button type="button" class="segment-btn active" data-status="">All</button>
+              <button type="button" class="segment-btn" data-status="Pending">Pending</button>
+              <button type="button" class="segment-btn" data-status="Completed">Completed</button>
+            </div>
+          </div>
+
+          <div class="filter-segment-wrapper">
+            <span class="filter-caption">Priority:</span>
+            <div class="segmented-control" id="priority-filters">
+              <button type="button" class="segment-btn active" data-priority="">All</button>
+              <button type="button" class="segment-btn" data-priority="High">High</button>
+              <button type="button" class="segment-btn" data-priority="Medium">Med</button>
+              <button type="button" class="segment-btn" data-priority="Low">Low</button>
+            </div>
+          </div>
+
+          <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-sm" title="Reset all search and filter conditions">
+            Reset Filters
+          </button>
+        </div>
+      </section>
+
+      <!-- Task List Feed -->
+      <section class="task-feed-section">
+        <div class="feed-header">
+          <div class="feed-title-wrap">
+            <h3>Your Tasks</h3>
+            <span class="task-counter-pill" id="visible-count">0 tasks</span>
+          </div>
+          <div class="feed-quick-action">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-add">+ Add Task</button>
+          </div>
+        </div>
+
+        <!-- Dynamic Tasks Container -->
+        <div id="tasks-container" class="tasks-grid">
+          <!-- Rendered via JavaScript -->
+        </div>
+
+        <!-- Empty State Graphic -->
+        <div id="empty-state" class="empty-state-card" style="display:none;">
+          <div class="empty-state-illustration">📚</div>
+          <h4 id="empty-state-title">No tasks found</h4>
+          <p id="empty-state-desc">You are all caught up! Click "+ New Task" to add your next assignment or exam deadline.</p>
+          <button type="button" class="btn btn-primary" id="empty-state-add-btn">+ Create Your First Task</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 2: CALENDAR VIEW -->
+    <!-- ========================================================= -->
+    <div id="view-calendar" class="view-panel" style="display:none;">
+      <div class="calendar-layout-wrapper">
+        <div class="card calendar-main-card">
+          <!-- Calendar Month Navigation Header -->
+          <div class="calendar-nav-header">
+            <div class="cal-nav-left">
+              <button type="button" class="btn btn-secondary btn-sm" id="cal-prev-month-btn">&larr; Prev</button>
+              <h3 id="cal-month-title">September 2026</h3>
+              <button type="button" class="btn btn-secondary btn-sm" id="cal-next-month-btn">Next &rarr;</button>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="cal-today-btn">Today</button>
+          </div>
+
+          <!-- Day of Week Headings -->
+          <div class="cal-weekdays-grid">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+
+          <!-- Calendar Days Grid (Populated dynamically) -->
+          <div class="cal-days-grid" id="cal-days-grid"></div>
+        </div>
+
+        <!-- Calendar Day Task Inspector Drawer -->
+        <div class="card calendar-inspector-card">
+          <div class="inspector-header">
+            <h4 id="inspector-selected-date">Select a day</h4>
+            <span class="badge badge-pending" id="inspector-count-badge">0 deadlines</span>
+          </div>
+          <div class="inspector-tasks-list" id="inspector-tasks-list">
+            <p class="inspector-empty-note">Click any calendar date with task dots to view and manage that day's coursework.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 3: PROGRESS & LEARNING ANALYTICS -->
+    <!-- ========================================================= -->
+    <div id="view-progress" class="view-panel" style="display:none;">
+      <!-- Motivational Banner -->
+      <div class="card progress-motivational-card">
+        <div class="motivational-icon">🎯</div>
+        <div class="motivational-text">
+          <h3 id="progress-motivation-title">Keep up the great momentum!</h3>
+          <p id="progress-motivation-text">Here is a snapshot of your learning consistency and completion rates.</p>
+        </div>
+        <div class="streak-badge-large" id="progress-streak-badge">
+          <span class="streak-flame">🔥</span>
+          <span class="streak-number" id="progress-streak-count">0</span>
+          <span class="streak-text">Day Streak</span>
         </div>
       </div>
 
-      <!-- Dynamic Tasks Container -->
-      <div id="tasks-container" class="tasks-grid">
-        <!-- Rendered via JavaScript -->
+      <!-- Analytics Metric Cards Grid -->
+      <div class="progress-stats-grid">
+        <div class="card progress-stat-card">
+          <span class="progress-card-label">Weekly Completion Rate</span>
+          <div class="progress-gauge-wrapper">
+            <div class="progress-gauge-bar">
+              <div class="progress-gauge-fill" id="progress-week-fill" style="width: 0%;"></div>
+            </div>
+            <span class="progress-gauge-value" id="progress-week-rate">0%</span>
+          </div>
+          <span class="progress-card-sub">Assignments due this week</span>
+        </div>
+
+        <div class="card progress-stat-card">
+          <span class="progress-card-label">Overall Coursework Done</span>
+          <div class="progress-gauge-wrapper">
+            <div class="progress-gauge-bar">
+              <div class="progress-gauge-fill fill-overall" id="progress-overall-fill" style="width: 0%;"></div>
+            </div>
+            <span class="progress-gauge-value" id="progress-overall-rate">0%</span>
+          </div>
+          <span class="progress-card-sub" id="progress-tasks-ratio">0 of 0 tasks completed</span>
+        </div>
+
+        <div class="card progress-stat-card">
+          <span class="progress-card-label">Urgency Breakdown</span>
+          <div class="priority-breakdown-row">
+            <span class="badge badge-high" id="breakdown-high">0 High</span>
+            <span class="badge badge-medium" id="breakdown-med">0 Med</span>
+            <span class="badge badge-low" id="breakdown-low">0 Low</span>
+          </div>
+          <span class="progress-card-sub">Pending tasks by priority</span>
+        </div>
       </div>
 
-      <!-- Empty State Graphic -->
-      <div id="empty-state" class="empty-state-card" style="display:none;">
-        <div class="empty-state-illustration">📚</div>
-        <h4 id="empty-state-title">No tasks found</h4>
-        <p id="empty-state-desc">You are all caught up! Click "+ New Task" to add your next assignment or exam deadline.</p>
-        <button type="button" class="btn btn-primary" id="empty-state-add-btn">+ Create Your First Task</button>
+      <!-- 7-Day Completion Chart Card -->
+      <div class="card progress-chart-card">
+        <div class="chart-header">
+          <h4>📊 7-Day Completion Velocity</h4>
+          <span class="chart-subtitle">Tasks completed per day over the last week</span>
+        </div>
+        <div class="activity-chart-container" id="activity-chart-container">
+          <!-- Rendered via pure CSS/SVG bars in JS -->
+        </div>
       </div>
-    </section>
+    </div>
   </div>
 
   <!-- Unified Task Modal (Create & Edit) -->
@@ -184,12 +325,24 @@
           </div>
         </div>
 
-        <div class="form-group" id="form-status-group" style="display:none;">
-          <label for="form-task-status">Status</label>
-          <select id="form-task-status">
-            <option value="Pending">Pending</option>
-            <option value="Completed">Completed</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="form-task-reminder">Reminder Alert</label>
+            <select id="form-task-reminder">
+              <option value="none" selected>No Reminder</option>
+              <option value="same_day">On Due Date</option>
+              <option value="1_day_before">1 Day Before</option>
+              <option value="2_days_before">2 Days Before</option>
+            </select>
+          </div>
+
+          <div class="form-group flex-1" id="form-status-group" style="display:none;">
+            <label for="form-task-status">Status</label>
+            <select id="form-task-status">
+              <option value="Pending">Pending</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
         </div>
 
         <div class="modal-footer">

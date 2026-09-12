@@ -1,13 +1,13 @@
 """
 app.py - Main Flask Application & REST API for Student Task Manager.
-Features session-based user authentication, strict data isolation,
-input validation, and RESTful task management endpoints.
+Features session-based user authentication, task management,
+personalized progress analytics, calendar view API, and reminder system.
 """
 
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -15,13 +15,13 @@ from database import get_db, close_db, init_db, DEFAULT_DB_PATH
 
 VALID_PRIORITIES = {"Low", "Medium", "High"}
 VALID_STATUSES = {"Pending", "Completed"}
+VALID_REMINDERS = {"none", "same_day", "1_day_before", "2_days_before"}
 MAX_TITLE_LENGTH = 150
 MAX_DESCRIPTION_LENGTH = 2000
 DEFAULT_ORDER_BY = "ORDER BY CASE status WHEN 'Pending' THEN 1 ELSE 2 END, due_date ASC, id DESC"
 EMAIL_REGEX = re.compile(r"^[\w\.-]+@[\w\.-]+\.\w+$")
 
 # In-memory login attempt tracker for brute-force protection
-# Format: { "email_or_ip": {"count": int, "blocked_until": float} }
 LOGIN_ATTEMPTS = {}
 MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION = 60  # seconds
@@ -36,7 +36,6 @@ def is_rate_limited(identifier):
     if record.get("blocked_until", 0) > now:
         return True
     if record.get("blocked_until", 0) <= now and record.get("count", 0) >= MAX_LOGIN_ATTEMPTS:
-        # Reset expired lockout
         LOGIN_ATTEMPTS.pop(identifier, None)
         return False
     return False
@@ -59,8 +58,8 @@ def reset_login_attempts(identifier):
 def login_required(f):
     """
     Decorator that enforces user authentication.
-    For API endpoints (under /api/), returns a 401 JSON error.
-    For HTML view endpoints, redirects unauthenticated users to the /login page.
+    For API endpoints (under /api/), returns 401 JSON.
+    For HTML views, redirects to /login.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -76,14 +75,17 @@ def row_to_dict(row):
     """Converts an sqlite3.Row object into a serializable Python dictionary."""
     if row is None:
         return None
+    keys = row.keys()
     return {
         "id": row["id"],
-        "user_id": row["user_id"] if "user_id" in row.keys() else None,
+        "user_id": row["user_id"] if "user_id" in keys else None,
         "title": row["title"],
         "description": row["description"],
         "priority": row["priority"],
         "due_date": row["due_date"],
         "status": row["status"],
+        "reminder_offset": row["reminder_offset"] if "reminder_offset" in keys else "none",
+        "completed_at": row["completed_at"] if "completed_at" in keys else None,
         "created_at": row["created_at"],
     }
 
@@ -147,12 +149,21 @@ def validate_and_parse_task_payload(data, is_update=False, existing=None):
     else:
         due_date = existing["due_date"] if is_update and existing else None
 
+    # 6. Reminder Offset validation
+    if "reminder_offset" in data:
+        reminder_offset = data.get("reminder_offset", "none")
+        if reminder_offset not in VALID_REMINDERS:
+            return None, f"Invalid reminder_offset '{reminder_offset}'. Allowed: {sorted(list(VALID_REMINDERS))}"
+    else:
+        reminder_offset = existing["reminder_offset"] if is_update and existing and "reminder_offset" in existing.keys() else "none"
+
     cleaned = {
         "title": title,
         "description": description,
         "priority": priority,
         "due_date": due_date,
         "status": status,
+        "reminder_offset": reminder_offset
     }
     return cleaned, None
 
@@ -213,7 +224,6 @@ def create_app(test_config=None):
                 return redirect(url_for("index"))
             return render_template("login.html")
 
-        # Process POST Login
         is_json = request.is_json
         data = request.get_json(silent=True) if is_json else request.form
 
@@ -245,7 +255,6 @@ def create_app(test_config=None):
                 return jsonify({"error": error_msg}), 401
             return render_template("login.html", error=error_msg, email=email), 401
 
-        # Authentication success
         reset_login_attempts(client_identifier)
         session.clear()
         session["user_id"] = user["id"]
@@ -268,7 +277,6 @@ def create_app(test_config=None):
                 return redirect(url_for("index"))
             return render_template("signup.html")
 
-        # Process POST Signup
         is_json = request.is_json
         data = request.get_json(silent=True) if is_json else request.form
 
@@ -277,7 +285,6 @@ def create_app(test_config=None):
         password = data.get("password") or ""
         confirm_password = data.get("confirm_password") or ""
 
-        # Validation
         if not name:
             error_msg = "Your full name is required."
             if is_json:
@@ -311,7 +318,6 @@ def create_app(test_config=None):
                 return jsonify({"error": error_msg}), 400
             return render_template("signup.html", error=error_msg, name=name, email=email), 400
 
-        # Hash password and store user
         pw_hash = generate_password_hash(password)
         cursor.execute(
             "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
@@ -320,7 +326,6 @@ def create_app(test_config=None):
         db.commit()
         user_id = cursor.lastrowid
 
-        # Auto-login after successful registration
         session.clear()
         session["user_id"] = user_id
         session["user_name"] = name
@@ -360,9 +365,7 @@ def create_app(test_config=None):
     def list_tasks():
         """
         List tasks belonging strictly to the authenticated student.
-        Supports optional query parameter filters:
-          - ?status=Pending or ?status=Completed
-          - ?priority=Low, Medium, or High
+        Supports query params ?status= and ?priority=
         """
         user_id = session["user_id"]
         status_filter = request.args.get("status")
@@ -412,12 +415,7 @@ def create_app(test_config=None):
     @login_required
     def create_task():
         """
-        Create a new student task linked to the authenticated student.
-        Request JSON:
-          - title (required, non-empty, max 150 chars)
-          - description (optional, max 2000 chars)
-          - priority (optional, default 'Medium')
-          - due_date (optional, YYYY-MM-DD)
+        Create a new student task.
         """
         user_id = session["user_id"]
         data = request.get_json(silent=True)
@@ -425,14 +423,16 @@ def create_app(test_config=None):
         if error:
             return jsonify({"error": error}), 400
 
+        completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if cleaned["status"] == "Completed" else None
+
         db = db_conn()
         cursor = db.cursor()
         cursor.execute(
             """
-            INSERT INTO tasks (user_id, title, description, priority, due_date, status)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO tasks (user_id, title, description, priority, due_date, status, reminder_offset, completed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, cleaned["title"], cleaned["description"], cleaned["priority"], cleaned["due_date"], cleaned["status"])
+            (user_id, cleaned["title"], cleaned["description"], cleaned["priority"], cleaned["due_date"], cleaned["status"], cleaned["reminder_offset"], completed_at)
         )
         db.commit()
         new_id = cursor.lastrowid
@@ -448,9 +448,7 @@ def create_app(test_config=None):
     @app.route("/api/tasks/<int:task_id>", methods=["PUT"])
     @login_required
     def update_task(task_id):
-        """
-        Update an existing task owned by the authenticated student.
-        """
+        """Update an existing task owned by the authenticated student."""
         user_id = session["user_id"]
         db = db_conn()
         cursor = db.cursor()
@@ -464,13 +462,20 @@ def create_app(test_config=None):
         if error:
             return jsonify({"error": error}), 400
 
+        if cleaned["status"] == "Completed" and existing["status"] != "Completed":
+            completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        elif cleaned["status"] == "Pending":
+            completed_at = None
+        else:
+            completed_at = existing["completed_at"]
+
         cursor.execute(
             """
             UPDATE tasks
-            SET title = ?, description = ?, priority = ?, due_date = ?, status = ?
+            SET title = ?, description = ?, priority = ?, due_date = ?, status = ?, reminder_offset = ?, completed_at = ?
             WHERE id = ? AND user_id = ?
             """,
-            (cleaned["title"], cleaned["description"], cleaned["priority"], cleaned["due_date"], cleaned["status"], task_id, user_id)
+            (cleaned["title"], cleaned["description"], cleaned["priority"], cleaned["due_date"], cleaned["status"], cleaned["reminder_offset"], completed_at, task_id, user_id)
         )
         db.commit()
 
@@ -485,9 +490,7 @@ def create_app(test_config=None):
     @app.route("/api/tasks/<int:task_id>/complete", methods=["PATCH"])
     @login_required
     def toggle_complete_task(task_id):
-        """
-        Mark a task complete or pending for the authenticated student.
-        """
+        """Mark a task complete or pending for the authenticated student."""
         user_id = session["user_id"]
         db = db_conn()
         cursor = db.cursor()
@@ -506,7 +509,9 @@ def create_app(test_config=None):
         else:
             new_status = "Completed" if existing["status"] == "Pending" else "Pending"
 
-        cursor.execute("UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?", (new_status, task_id, user_id))
+        completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if new_status == "Completed" else None
+
+        cursor.execute("UPDATE tasks SET status = ?, completed_at = ? WHERE id = ? AND user_id = ?", (new_status, completed_at, task_id, user_id))
         db.commit()
 
         cursor.execute("SELECT * FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
@@ -529,7 +534,7 @@ def create_app(test_config=None):
         if existing is None:
             return jsonify({"error": f"Task with ID {task_id} not found."}), 404
 
-        cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
+        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
         db.commit()
 
         return jsonify({"message": f"Task {task_id} deleted successfully."}), 200
@@ -537,9 +542,7 @@ def create_app(test_config=None):
     @app.route("/api/tasks/search", methods=["GET"])
     @login_required
     def search_tasks():
-        """
-        Search tasks by title or description owned by the authenticated student.
-        """
+        """Search tasks by title or description owned by the authenticated student."""
         user_id = session["user_id"]
         query_param = request.args.get("q", "").strip()
         db = db_conn()
@@ -561,6 +564,218 @@ def create_app(test_config=None):
         rows = cursor.fetchall()
         tasks = [row_to_dict(r) for r in rows]
         return jsonify(tasks), 200
+
+    # -------------------------------------------------------------
+    # Part A: Personalized Progress Analytics API
+    # -------------------------------------------------------------
+    @app.route("/api/progress", methods=["GET"])
+    @login_required
+    def get_progress():
+        """
+        Returns personalized learning and completion metrics for the student:
+        - Total, completed, pending, overdue counts
+        - Overall and current week completion rates (%)
+        - Current streak (consecutive days with at least 1 task completed)
+        - 7-day daily completion history
+        - Pending breakdown by priority
+        - Dynamic motivational feedback message
+        """
+        user_id = session["user_id"]
+        db = db_conn()
+        cursor = db.cursor()
+
+        # Fetch all user tasks
+        cursor.execute("SELECT * FROM tasks WHERE user_id = ?", (user_id,))
+        rows = cursor.fetchall()
+        tasks = [row_to_dict(r) for r in rows]
+
+        now = datetime.now()
+        today_date_str = now.strftime("%Y-%m-%d")
+
+        total = len(tasks)
+        completed = sum(1 for t in tasks if t["status"] == "Completed")
+        pending = total - completed
+
+        # Overdue: due before today and still pending
+        overdue = sum(1 for t in tasks if t["status"] == "Pending" and t["due_date"] and t["due_date"] < today_date_str)
+
+        # Overall completion rate
+        completion_rate_overall = round((completed / total * 100), 1) if total > 0 else 0.0
+
+        # Current week metrics (Monday to Sunday)
+        start_of_week = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
+        week_tasks = [t for t in tasks if t["due_date"] and t["due_date"] >= start_of_week]
+        week_completed = sum(1 for t in week_tasks if t["status"] == "Completed")
+        completion_rate_week = round((week_completed / len(week_tasks) * 100), 1) if len(week_tasks) > 0 else completion_rate_overall
+
+        # Pending breakdown by priority
+        priority_breakdown = {
+            "High": sum(1 for t in tasks if t["status"] == "Pending" and t["priority"] == "High"),
+            "Medium": sum(1 for t in tasks if t["status"] == "Pending" and t["priority"] == "Medium"),
+            "Low": sum(1 for t in tasks if t["status"] == "Pending" and t["priority"] == "Low")
+        }
+
+        # 7-Day Completion History (Last 7 days)
+        daily_history = []
+        completed_date_set = set()
+        for i in range(6, -1, -1):
+            day_dt = now - timedelta(days=i)
+            day_str = day_dt.strftime("%Y-%m-%d")
+            # Count tasks with completed_at on that day
+            day_count = sum(1 for t in tasks if t["completed_at"] and t["completed_at"].startswith(day_str))
+            daily_history.append({"date": day_str, "day_name": day_dt.strftime("%a"), "count": day_count})
+            if day_count > 0:
+                completed_date_set.add(day_str)
+
+        # Streak calculation: Count consecutive days ending today (or yesterday)
+        streak = 0
+        check_date = now
+        # If today has no completed tasks yet, check if yesterday continued a streak
+        if today_date_str not in completed_date_set:
+            check_date = now - timedelta(days=1)
+
+        while True:
+            date_key = check_date.strftime("%Y-%m-%d")
+            # Check if any task was completed on date_key
+            day_has_completion = any(t["completed_at"] and t["completed_at"].startswith(date_key) for t in tasks)
+            if day_has_completion:
+                streak += 1
+                check_date -= timedelta(days=1)
+            else:
+                break
+
+        # Dynamic Motivational Message
+        if overdue > 0:
+            motivation = f"⚠️ You have {overdue} overdue {'task' if overdue == 1 else 'tasks'} needing attention. Let's tackle them first!"
+        elif streak >= 3:
+            motivation = f"🔥 You are on fire! You've maintained a {streak}-day completion streak."
+        elif completion_rate_overall >= 80 and total > 0:
+            motivation = "🌟 Outstanding pace! Over 80% of your coursework is completed."
+        elif completed > 0:
+            motivation = "🚀 Great momentum! Keep checking off assignments to build your streak."
+        else:
+            motivation = "💡 Ready to study? Add your deadlines and start checking off tasks!"
+
+        return jsonify({
+            "total_tasks": total,
+            "completed_tasks": completed,
+            "pending_tasks": pending,
+            "overdue_tasks": overdue,
+            "completion_rate_overall": completion_rate_overall,
+            "completion_rate_week": completion_rate_week,
+            "current_streak_days": streak,
+            "priority_breakdown": priority_breakdown,
+            "daily_completion_history": daily_history,
+            "motivational_message": motivation
+        }), 200
+
+    # -------------------------------------------------------------
+    # Part B: Monthly Calendar API
+    # -------------------------------------------------------------
+    @app.route("/api/tasks/calendar", methods=["GET"])
+    @login_required
+    def get_calendar_tasks():
+        """
+        Returns tasks grouped by due date for a given month and year.
+        Query params: ?month=9&year=2026 (defaults to current month/year)
+        """
+        user_id = session["user_id"]
+        now = datetime.now()
+
+        try:
+            month = int(request.args.get("month", now.month))
+            year = int(request.args.get("year", now.year))
+            if not (1 <= month <= 12 and 1900 <= year <= 2100):
+                return jsonify({"error": "Invalid month or year parameters."}), 400
+        except ValueError:
+            return jsonify({"error": "Month and year must be integers."}), 400
+
+        month_str = f"{year:04d}-{month:02d}"
+        pattern = f"{month_str}%"
+
+        db = db_conn()
+        cursor = db.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM tasks
+            WHERE user_id = ? AND due_date LIKE ?
+            ORDER BY due_date ASC, CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END
+            """,
+            (user_id, pattern)
+        )
+        rows = cursor.fetchall()
+        tasks = [row_to_dict(r) for r in rows]
+
+        # Group tasks by due_date
+        calendar_days = {}
+        for t in tasks:
+            d = t["due_date"]
+            if d not in calendar_days:
+                calendar_days[d] = []
+            calendar_days[d].append(t)
+
+        return jsonify({
+            "month": month,
+            "year": year,
+            "month_name": datetime(year, month, 1).strftime("%B"),
+            "days": calendar_days
+        }), 200
+
+    # -------------------------------------------------------------
+    # Part C: Task Reminders API
+    # -------------------------------------------------------------
+    @app.route("/api/reminders", methods=["GET"])
+    @login_required
+    def get_reminders():
+        """
+        Returns tasks requiring reminders for the authenticated student:
+        - Overdue pending tasks
+        - Tasks due today
+        - Tasks due within the configured reminder_offset (1 day before, 2 days before)
+        """
+        user_id = session["user_id"]
+        db = db_conn()
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM tasks WHERE user_id = ? AND status = 'Pending' AND due_date IS NOT NULL", (user_id,))
+        rows = cursor.fetchall()
+        tasks = [row_to_dict(r) for r in rows]
+
+        today_dt = datetime.now().date()
+        reminders = []
+
+        for t in tasks:
+            due_dt = datetime.strptime(t["due_date"], "%Y-%m-%d").date()
+            diff_days = (due_dt - today_dt).days
+
+            is_reminder_due = False
+            reminder_reason = ""
+
+            if diff_days < 0:
+                is_reminder_due = True
+                reminder_reason = f"Overdue by {abs(diff_days)} {'day' if abs(diff_days) == 1 else 'days'}"
+            elif diff_days == 0:
+                is_reminder_due = True
+                reminder_reason = "Due today!"
+            elif diff_days == 1 and t["reminder_offset"] in ("1_day_before", "2_days_before"):
+                is_reminder_due = True
+                reminder_reason = "Due tomorrow!"
+            elif diff_days == 2 and t["reminder_offset"] == "2_days_before":
+                is_reminder_due = True
+                reminder_reason = "Due in 2 days"
+
+            if is_reminder_due:
+                t_copy = dict(t)
+                t_copy["reminder_reason"] = reminder_reason
+                t_copy["days_remaining"] = diff_days
+                reminders.append(t_copy)
+
+        # Sort: Overdue first, then today, then upcoming
+        reminders.sort(key=lambda x: (x["days_remaining"], 0 if x["priority"] == "High" else 1))
+
+        return jsonify({
+            "count": len(reminders),
+            "reminders": reminders
+        }), 200
 
     return app
 
