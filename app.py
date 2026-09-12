@@ -12,7 +12,7 @@ import logging
 import traceback
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, close_db, init_db, DEFAULT_DB_PATH
 
@@ -61,15 +61,31 @@ def reset_login_attempts(identifier):
 def login_required(f):
     """
     Decorator that enforces user authentication.
+    Verifies that the session user_id exists in the users table.
     For API endpoints (under /api/), returns 401 JSON.
     For HTML views, redirects to /login.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if "user_id" not in session:
-            if request.path.startswith("/api/"):
+        user_id = session.get("user_id")
+        if not user_id:
+            if request.path.startswith("/api/") or request.is_json:
                 return jsonify({"error": "Unauthorized. Please log in to access this resource."}), 401
             return redirect(url_for("login_view"))
+
+        # Verify that the user still exists in the database
+        db_path = current_app.config.get("DATABASE", DEFAULT_DB_PATH)
+        db = get_db(db_path)
+        cursor = db.cursor()
+        cursor.execute("SELECT id, name, email FROM users WHERE id = ?", (user_id,))
+        user_row = cursor.fetchone()
+
+        if user_row is None:
+            session.clear()
+            if request.path.startswith("/api/") or request.is_json:
+                return jsonify({"error": "Session expired or user not found. Please log in again."}), 401
+            return redirect(url_for("login_view"))
+
         return f(*args, **kwargs)
     return decorated_function
 

@@ -142,6 +142,48 @@ def test_task_crud_lifecycle(auth_client):
     assert del_res.status_code == 200
 
 
+def test_ghost_stale_session_protection(client):
+    """Test that a stale or non-existent session user_id returns 401 instead of crashing with 500 foreign key failure."""
+    with client.session_transaction() as sess:
+        sess["user_id"] = 99999
+        sess["user_name"] = "Ghost Student"
+
+    # GET /api/tasks must safely reject with 401
+    get_res = client.get("/api/tasks")
+    assert get_res.status_code == 401
+    assert "Session expired" in get_res.get_json()["error"]
+
+    # POST /api/tasks must safely reject with 401 instead of 500
+    post_res = client.post("/api/tasks", json={"title": "Refill water", "priority": "Low"})
+    assert post_res.status_code == 401
+
+
+def test_add_task_low_priority_with_reminder(auth_client):
+    """Test adding a task titled 'refill water' with Low priority, due date, and '1_day_before' reminder."""
+    payload = {
+        "title": "refill water",
+        "description": "Stay hydrated during study sessions",
+        "priority": "Low",
+        "due_date": "2026-09-13",
+        "reminder_offset": "1_day_before",
+        "status": "Pending"
+    }
+    response = auth_client.post("/api/tasks", json=payload)
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["message"] == "Task created successfully."
+    assert data["task"]["title"] == "refill water"
+    assert data["task"]["priority"] == "Low"
+    assert data["task"]["reminder_offset"] == "1_day_before"
+    assert data["task"]["due_date"] == "2026-09-13"
+
+    # Verify task appears in list
+    list_res = auth_client.get("/api/tasks")
+    assert list_res.status_code == 200
+    tasks = list_res.get_json()
+    assert any(t["title"] == "refill water" and t["priority"] == "Low" for t in tasks)
+
+
 # -----------------------------------------------------------------
 # 4. Part A: Progress Tracking Analytics Tests
 # -----------------------------------------------------------------

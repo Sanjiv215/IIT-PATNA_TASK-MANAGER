@@ -154,13 +154,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // Toast Notifications
+  // Toast Notifications (Deduplicated & Stack-Protected)
   // -----------------------------------------------------------------
   function showToast(message, type = "success") {
     const container = document.getElementById("toast-container");
-    if (!container) return;
+    if (!container || !message) return;
+
+    // Prevent duplicate stacked toasts with the exact same message
+    const existing = container.querySelectorAll(".toast");
+    for (const t of existing) {
+      if (t.getAttribute("data-message") === message) {
+        return; // Already actively showing this notification
+      }
+    }
+
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
+    toast.setAttribute("data-message", message);
     const icon = type === "success" ? "✓" : "⚠️";
     toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(message)}</span>`;
     container.appendChild(toast);
@@ -221,7 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderStats(allTasks);
       applyCurrentFilters();
     } catch (err) {
-      console.error(err);
+      console.error("fetchTasksAndStats error:", err);
       showErrorBanner("Unable to load tasks");
     }
   }
@@ -252,6 +262,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (searchQuery.trim()) {
       try {
         const res = await fetch(`/api/tasks/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
         if (res.ok) {
           displayedTasks = await res.json();
         }
@@ -271,16 +285,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderTasks(taskList) {
+    if (!tasksContainer) return;
     tasksContainer.innerHTML = "";
-    if (visibleCountBadge) {
-      visibleCountBadge.textContent = `${taskList.length} ${taskList.length === 1 ? "task" : "tasks"}`;
-    }
 
     if (taskList.length === 0) {
-      emptyState.style.display = "block";
+      if (emptyState) emptyState.style.display = "block";
       return;
     }
-    emptyState.style.display = "none";
+    if (emptyState) emptyState.style.display = "none";
 
     taskList.forEach(task => {
       const card = document.createElement("div");
@@ -612,8 +624,12 @@ document.addEventListener("DOMContentLoaded", () => {
     taskModal.style.display = "none";
   }
 
+  let isSubmittingTask = false;
+
   taskForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (isSubmittingTask) return;
+
     const taskId = formTaskId.value;
     const title = formTitle.value.trim();
     const description = formDesc.value.trim();
@@ -627,7 +643,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const submitBtn = document.getElementById("modal-submit-btn");
     try {
+      isSubmittingTask = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = "0.7";
+      }
+
       let response;
       if (taskId) {
         response = await fetch(`/api/tasks/${taskId}`, {
@@ -643,6 +666,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
 
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to save task");
 
@@ -656,6 +684,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (currentView === "progress") fetchProgressAnalytics();
     } catch (err) {
       showToast(err.message, "error");
+    } finally {
+      isSubmittingTask = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = "1";
+      }
     }
   });
 
