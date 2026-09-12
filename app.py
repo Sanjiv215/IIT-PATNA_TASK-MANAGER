@@ -1,12 +1,15 @@
 """
 app.py - Main Flask Application & REST API for Student Task Manager.
 Features session-based user authentication, task management,
-personalized progress analytics, calendar view API, and reminder system.
+personalized progress analytics, calendar view API, reminder system,
+and comprehensive error handling.
 """
 
 import os
 import re
 import time
+import logging
+import traceback
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
@@ -82,7 +85,7 @@ def row_to_dict(row):
         "title": row["title"],
         "description": row["description"],
         "priority": row["priority"],
-        "due_date": row["due_date"],
+        "due_date": row["due_date"] if row["due_date"] else None,
         "status": row["status"],
         "reminder_offset": row["reminder_offset"] if "reminder_offset" in keys else "none",
         "completed_at": row["completed_at"] if "completed_at" in keys else None,
@@ -171,7 +174,7 @@ def validate_and_parse_task_payload(data, is_update=False, existing=None):
 def create_app(test_config=None):
     """
     Application factory pattern.
-    Configures database, session security, and registers routes.
+    Configures database, session security, error handlers, and registers routes.
     """
     app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -198,10 +201,36 @@ def create_app(test_config=None):
                         from seed import seed_database
                         seed_database(db_path)
         except Exception as e:
-            print(f"Notice during startup database initialization: {e}")
+            app.logger.warning(f"Notice during startup database initialization: {e}")
 
     def db_conn():
         return get_db(app.config["DATABASE"])
+
+    # -------------------------------------------------------------
+    # Global Error Handlers (500, 404, 400)
+    # -------------------------------------------------------------
+    @app.errorhandler(500)
+    def handle_internal_server_error(e):
+        """Friendly error handler for 500 Internal Server Errors."""
+        app.logger.error(f"Internal Server Error: {e}\n{traceback.format_exc()}")
+        if request.path.startswith("/api/") or request.is_json:
+            return jsonify({"error": "An internal server error occurred. Please try again later."}), 500
+        return render_template("login.html", error="An internal server error occurred. Please refresh or try again."), 500
+
+    @app.errorhandler(404)
+    def handle_not_found_error(e):
+        """Friendly error handler for 404 Not Found."""
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Resource not found."}), 404
+        return redirect(url_for("index"))
+
+    @app.errorhandler(Exception)
+    def handle_unhandled_exception(e):
+        """Catches unhandled exceptions, logs traceback, and returns a safe response."""
+        app.logger.error(f"Unhandled Exception on {request.path} [{request.method}]: {e}\n{traceback.format_exc()}")
+        if request.path.startswith("/api/") or request.is_json:
+            return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
+        return render_template("login.html", error="An unexpected error occurred. Please try again."), 500
 
     # -------------------------------------------------------------
     # Authentication & Page Views
@@ -467,7 +496,7 @@ def create_app(test_config=None):
         elif cleaned["status"] == "Pending":
             completed_at = None
         else:
-            completed_at = existing["completed_at"]
+            completed_at = existing["completed_at"] if "completed_at" in existing.keys() else None
 
         cursor.execute(
             """
@@ -572,19 +601,13 @@ def create_app(test_config=None):
     @login_required
     def get_progress():
         """
-        Returns personalized learning and completion metrics for the student:
-        - Total, completed, pending, overdue counts
-        - Overall and current week completion rates (%)
-        - Current streak (consecutive days with at least 1 task completed)
-        - 7-day daily completion history
-        - Pending breakdown by priority
-        - Dynamic motivational feedback message
+        Returns personalized learning and completion metrics for the student.
+        Robustly handles missing due dates, empty strings, and null timestamps.
         """
         user_id = session["user_id"]
         db = db_conn()
         cursor = db.cursor()
 
-        # Fetch all user tasks
         cursor.execute("SELECT * FROM tasks WHERE user_id = ?", (user_id,))
         rows = cursor.fetchall()
         tasks = [row_to_dict(r) for r in rows]
@@ -596,15 +619,20 @@ def create_app(test_config=None):
         completed = sum(1 for t in tasks if t["status"] == "Completed")
         pending = total - completed
 
-        # Overdue: due before today and still pending
-        overdue = sum(1 for t in tasks if t["status"] == "Pending" and t["due_date"] and t["due_date"] < today_date_str)
+        # Safe overdue check (must have valid non-empty due_date string)
+        overdue = 0
+        for t in tasks:
+            if t["status"] == "Pending" and t.get("due_date") and str(t["due_date"]).strip():
+                due_val = str(t["due_date"]).strip()
+                if len(due_val) == 10 and due_val < today_date_str:
+                    overdue += 1
 
         # Overall completion rate
         completion_rate_overall = round((completed / total * 100), 1) if total > 0 else 0.0
 
         # Current week metrics (Monday to Sunday)
         start_of_week = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
-        week_tasks = [t for t in tasks if t["due_date"] and t["due_date"] >= start_of_week]
+        week_tasks = [t for t in tasks if t.get("due_date") and str(t["due_date"]).strip() >= start_of_week]
         week_completed = sum(1 for t in week_tasks if t["status"] == "Completed")
         completion_rate_week = round((week_completed / len(week_tasks) * 100), 1) if len(week_tasks) > 0 else completion_rate_overall
 
@@ -621,23 +649,21 @@ def create_app(test_config=None):
         for i in range(6, -1, -1):
             day_dt = now - timedelta(days=i)
             day_str = day_dt.strftime("%Y-%m-%d")
-            # Count tasks with completed_at on that day
-            day_count = sum(1 for t in tasks if t["completed_at"] and t["completed_at"].startswith(day_str))
+            day_count = sum(1 for t in tasks if t.get("completed_at") and str(t["completed_at"]).startswith(day_str))
             daily_history.append({"date": day_str, "day_name": day_dt.strftime("%a"), "count": day_count})
             if day_count > 0:
                 completed_date_set.add(day_str)
 
-        # Streak calculation: Count consecutive days ending today (or yesterday)
+        # Streak calculation: Consecutive days ending today or yesterday
         streak = 0
         check_date = now
-        # If today has no completed tasks yet, check if yesterday continued a streak
         if today_date_str not in completed_date_set:
             check_date = now - timedelta(days=1)
 
-        while True:
+        # Safety bound (max 365 days)
+        while streak < 365:
             date_key = check_date.strftime("%Y-%m-%d")
-            # Check if any task was completed on date_key
-            day_has_completion = any(t["completed_at"] and t["completed_at"].startswith(date_key) for t in tasks)
+            day_has_completion = any(t.get("completed_at") and str(t["completed_at"]).startswith(date_key) for t in tasks)
             if day_has_completion:
                 streak += 1
                 check_date -= timedelta(days=1)
@@ -677,7 +703,7 @@ def create_app(test_config=None):
     def get_calendar_tasks():
         """
         Returns tasks grouped by due date for a given month and year.
-        Query params: ?month=9&year=2026 (defaults to current month/year)
+        Query params: ?month=9&year=2026
         """
         user_id = session["user_id"]
         now = datetime.now()
@@ -698,7 +724,7 @@ def create_app(test_config=None):
         cursor.execute(
             """
             SELECT * FROM tasks
-            WHERE user_id = ? AND due_date LIKE ?
+            WHERE user_id = ? AND due_date IS NOT NULL AND due_date != '' AND due_date LIKE ?
             ORDER BY due_date ASC, CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END
             """,
             (user_id, pattern)
@@ -706,13 +732,13 @@ def create_app(test_config=None):
         rows = cursor.fetchall()
         tasks = [row_to_dict(r) for r in rows]
 
-        # Group tasks by due_date
         calendar_days = {}
         for t in tasks:
             d = t["due_date"]
-            if d not in calendar_days:
-                calendar_days[d] = []
-            calendar_days[d].append(t)
+            if d:
+                if d not in calendar_days:
+                    calendar_days[d] = []
+                calendar_days[d].append(t)
 
         return jsonify({
             "month": month,
@@ -728,15 +754,19 @@ def create_app(test_config=None):
     @login_required
     def get_reminders():
         """
-        Returns tasks requiring reminders for the authenticated student:
-        - Overdue pending tasks
-        - Tasks due today
-        - Tasks due within the configured reminder_offset (1 day before, 2 days before)
+        Returns tasks requiring reminders for the authenticated student.
+        Safely parses dates without throwing uncaught 500 exceptions.
         """
         user_id = session["user_id"]
         db = db_conn()
         cursor = db.cursor()
-        cursor.execute("SELECT * FROM tasks WHERE user_id = ? AND status = 'Pending' AND due_date IS NOT NULL", (user_id,))
+        cursor.execute(
+            """
+            SELECT * FROM tasks
+            WHERE user_id = ? AND status = 'Pending' AND due_date IS NOT NULL AND due_date != ''
+            """,
+            (user_id,)
+        )
         rows = cursor.fetchall()
         tasks = [row_to_dict(r) for r in rows]
 
@@ -744,9 +774,17 @@ def create_app(test_config=None):
         reminders = []
 
         for t in tasks:
-            due_dt = datetime.strptime(t["due_date"], "%Y-%m-%d").date()
-            diff_days = (due_dt - today_dt).days
+            raw_due = str(t["due_date"]).strip() if t.get("due_date") else ""
+            if not raw_due:
+                continue
 
+            try:
+                due_dt = datetime.strptime(raw_due, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                # Skip corrupt or malformed date gracefully without raising 500
+                continue
+
+            diff_days = (due_dt - today_dt).days
             is_reminder_due = False
             reminder_reason = ""
 
@@ -756,10 +794,10 @@ def create_app(test_config=None):
             elif diff_days == 0:
                 is_reminder_due = True
                 reminder_reason = "Due today!"
-            elif diff_days == 1 and t["reminder_offset"] in ("1_day_before", "2_days_before"):
+            elif diff_days == 1 and t.get("reminder_offset") in ("1_day_before", "2_days_before"):
                 is_reminder_due = True
                 reminder_reason = "Due tomorrow!"
-            elif diff_days == 2 and t["reminder_offset"] == "2_days_before":
+            elif diff_days == 2 and t.get("reminder_offset") == "2_days_before":
                 is_reminder_due = True
                 reminder_reason = "Due in 2 days"
 
@@ -769,7 +807,6 @@ def create_app(test_config=None):
                 t_copy["days_remaining"] = diff_days
                 reminders.append(t_copy)
 
-        # Sort: Overdue first, then today, then upcoming
         reminders.sort(key=lambda x: (x["days_remaining"], 0 if x["priority"] == "High" else 1))
 
         return jsonify({

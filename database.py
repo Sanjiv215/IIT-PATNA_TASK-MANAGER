@@ -1,10 +1,12 @@
 """
 database.py - Database connection, initialization, and migration helper for SQLite.
 Manages connections, schema migrations, and user data isolation.
+Run with `python database.py --reset` to wipe and re-initialize from scratch.
 """
 
 import sqlite3
 import os
+import sys
 from flask import g, has_app_context
 from werkzeug.security import generate_password_hash
 
@@ -128,7 +130,27 @@ def init_db(db_path=None):
         conn.close()
 
 
+def reset_db(db_path=None):
+    """
+    Completely removes any existing database file and recreates clean schema with seed tasks.
+    """
+    target_path = db_path or DEFAULT_DB_PATH
+    if os.path.exists(target_path):
+        os.remove(target_path)
+        print(f"Removed old database at {target_path}")
+
+    init_db(target_path)
+    print("Created fresh tables and schema indexes.")
+
+    from seed import seed_database
+    seed_database(target_path)
+    print("Database reset & seeded successfully!")
+
+
 if __name__ == "__main__":
-    print(f"Initializing and migrating database at: {DEFAULT_DB_PATH}")
-    init_db()
-    print("Database initialized successfully!")
+    if len(sys.argv) > 1 and sys.argv[1] in ("--reset", "-r", "reset"):
+        reset_db()
+    else:
+        print(f"Initializing and migrating database at: {DEFAULT_DB_PATH}")
+        init_db()
+        print("Database initialized successfully! (Tip: use `python database.py --reset` to recreate from scratch)")
