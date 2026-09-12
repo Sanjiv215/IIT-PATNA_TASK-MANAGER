@@ -2,6 +2,8 @@
 
 > A lightweight, intuitive full-stack web application designed for students to organize, prioritize, track, and manage academic coursework, deadlines, and project milestones.
 
+🔗 **Live Demo URL**: `https://student-task-manager-<your-subdomain>.onrender.com` *(or your deployed URL)*
+
 ---
 
 ## 📌 Problem Statement
@@ -31,8 +33,8 @@ The **Student Task Manager** solves this problem by providing a clean, responsiv
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python 3.10+, Flask 3.0.3
-- **Database**: SQLite3 (embedded relational database with connection pooling on Flask context)
+- **Backend**: Python 3.10+, Flask 3.0.3, Gunicorn 22.0.0
+- **Database**: SQLite3 (embedded relational database with connection management on Flask context)
 - **Frontend**: Vanilla HTML5, modern responsive CSS3, vanilla JavaScript (ES6+ with `fetch` API)
 - **Testing**: `pytest` 8.3.2 with isolated temporary SQLite database fixtures
 
@@ -43,7 +45,9 @@ The **Student Task Manager** solves this problem by providing a clean, responsiv
 ```text
 student-task-manager/
 ├── .gitignore             # Ignores Python bytecode, venv, SQLite .db files, and environment configs
-├── requirements.txt       # Core project dependencies (Flask, pytest)
+├── requirements.txt       # Core project dependencies (Flask, gunicorn, pytest)
+├── Procfile               # Production WSGI entry point for Render/Railway (web: gunicorn app:app)
+├── runtime.txt            # Explicit Python runtime specification (python-3.11.9)
 ├── app.py                 # Flask application factory, frontend rendering, and RESTful API endpoints
 ├── database.py            # SQLite database connection manager and schema initializer
 ├── schema.sql             # Database schema definition with constraints and performance indexes
@@ -65,7 +69,7 @@ student-task-manager/
 
 ---
 
-## 🚀 Setup & Installation
+## 🚀 Setup & Local Installation
 
 ### 1. Clone or Open the Repository
 ```bash
@@ -103,6 +107,29 @@ Open your browser and navigate to: **[http://127.0.0.1:5000](http://127.0.0.1:50
 
 ---
 
+## 🌐 Free-Tier Cloud Deployment Guide (Render)
+
+This application is fully production-configured with `gunicorn`, `Procfile`, and `runtime.txt` for one-click deployment on **Render** (Free Tier):
+
+### Quick Deployment Steps:
+1. Push this `student-task-manager` repository to your **GitHub** account.
+2. Sign up / Log in to [Render.com](https://render.com).
+3. In the Render Dashboard, click **New +** > **Web Service**.
+4. Select **Build and deploy from a Git repository** and connect your `student-task-manager` repo.
+5. Configure the service settings:
+   - **Name**: `student-task-manager` (or custom)
+   - **Runtime**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app`
+   - **Instance Type**: `Free`
+6. Click **Deploy Web Service**.
+7. Once deployed, Render will provide a live URL (`https://<service-name>.onrender.com`).
+
+> **Note on SQLite on Free-Tier Hosting**:  
+> Render's free tier uses an ephemeral filesystem, meaning if the application is rebuilt or redeployed, the local SQLite database resets. To ensure uninterrupted demonstration, our `app.py` automatically initializes tables and seeds standard sample tasks on initial startup.
+
+---
+
 ## 📡 REST API Reference
 
 | Method | Endpoint | Description | Example Request Body | Example Response |
@@ -137,16 +164,6 @@ To run the test suite:
 ```bash
 pytest -v
 ```
-
-### Test Coverage Summary:
-- Homepage HTML rendering
-- Task creation with valid and invalid data (missing title, invalid priority, malformed dates, oversized strings)
-- Task retrieval (single task by ID, 404 for invalid IDs, full list)
-- Task updating and validation
-- Status toggling (`Pending` ↔ `Completed`)
-- Task deletion and verification
-- Query parameter filtering by `status` and `priority`
-- Substring search across titles and descriptions
 
 ---
 
@@ -190,7 +207,7 @@ pytest -v
 
 10. **Final Application – complete working application in the browser**  
     <!-- ![Screenshot 10: Final Application](screenshots/10_final_application.png) -->
-    *Caption: Complete end-to-end working Student Task Manager web application running locally.*
+    *Caption: Complete end-to-end working Student Task Manager web application running locally or in cloud.*
 
 ---
 
@@ -206,4 +223,5 @@ pytest -v
 
 - **Developer**: [Student Name Placeholder]
 - **Technology Stack**: Python / Flask, SQLite, Vanilla HTML5 / CSS3 / JavaScript
+- **Deployment**: Render / Gunicorn
 - **AI Pair Programming Assistant**: Google DeepMind Antigravity / Claude Code

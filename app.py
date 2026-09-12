@@ -80,7 +80,6 @@ def validate_and_parse_task_payload(data, is_update=False, existing=None):
         if raw_due_date is not None and str(raw_due_date).strip() != "":
             due_date_str = str(raw_due_date).strip()
             try:
-                # Ensure strict YYYY-MM-DD format
                 datetime.strptime(due_date_str, "%Y-%m-%d")
                 due_date = due_date_str
             except ValueError:
@@ -118,6 +117,20 @@ def create_app(test_config=None):
 
     # Register teardown function to clean up database connections
     app.teardown_appcontext(close_db)
+
+    # Auto-initialize database on startup if database file or tables don't exist yet
+    db_path = app.config["DATABASE"]
+    if test_config is None and db_path != ":memory:":
+        try:
+            if not os.path.exists(db_path):
+                with app.app_context():
+                    init_db(db_path)
+                    # Automatically seed sample tasks on initial production deployment
+                    if os.environ.get("AUTO_SEED", "1") == "1":
+                        from seed import seed_database
+                        seed_database(db_path)
+        except Exception as e:
+            print(f"Notice during startup database initialization: {e}")
 
     def db_conn():
         return get_db(app.config["DATABASE"])
@@ -340,14 +353,12 @@ def create_app(test_config=None):
     return app
 
 
-# Default app instance for running via python app.py or flask run
+# Default app instance for running via gunicorn or flask run
 app = create_app()
 
 if __name__ == "__main__":
-    # Ensure database is initialized before serving
     if not os.path.exists(DEFAULT_DB_PATH):
         init_db()
-    # Read debug mode safely from environment (defaults to False for safety)
     debug_mode = os.environ.get("FLASK_DEBUG", "0").lower() in ("1", "true")
     print(f"Starting Student Task Manager server (debug={debug_mode}) on http://127.0.0.1:5000")
     app.run(host="127.0.0.1", port=5000, debug=debug_mode)
