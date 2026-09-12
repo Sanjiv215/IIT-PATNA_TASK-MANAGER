@@ -13,7 +13,6 @@ from werkzeug.security import generate_password_hash
 DATABASE_NAME = "tasks.db"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, DATABASE_NAME)
-SCHEMA_PATH = os.path.join(BASE_DIR, "schema.sql")
 
 
 def get_db(db_path=None):
@@ -132,7 +131,7 @@ def init_db(db_path=None):
 
 def reset_db(db_path=None):
     """
-    Completely removes any existing database file and recreates clean schema with seed tasks.
+    Completely removes any existing database file and recreates clean schema with zero rows.
     """
     target_path = db_path or DEFAULT_DB_PATH
     if os.path.exists(target_path):
@@ -140,11 +139,7 @@ def reset_db(db_path=None):
         print(f"Removed old database at {target_path}")
 
     init_db(target_path)
-    print("Created fresh tables and schema indexes.")
-
-    from seed import seed_database
-    seed_database(target_path)
-    print("Database reset & seeded successfully!")
+    print("Database reset to 0 rows successfully!")
 
 
 if __name__ == "__main__":
