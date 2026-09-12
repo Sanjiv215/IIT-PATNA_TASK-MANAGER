@@ -1,10 +1,16 @@
 """
-seed.py - Seeds the SQLite database with realistic initial student tasks.
+seed.py - Seeds the SQLite database with initial user account and sample student tasks.
 Run this script with: python seed.py
 """
 
 from database import get_db, init_db, DEFAULT_DB_PATH
-import os
+from werkzeug.security import generate_password_hash
+
+DEMO_USER = {
+    "name": "Demo Student",
+    "email": "demo@student.edu",
+    "password": "Password123!"
+}
 
 SAMPLE_TASKS = [
     {
@@ -53,29 +59,42 @@ SAMPLE_TASKS = [
 
 
 def seed_database(db_path=DEFAULT_DB_PATH):
-    # Ensure tables exist
+    # Ensure tables and migrations exist
     init_db(db_path)
     conn = get_db(db_path)
     cursor = conn.cursor()
 
-    # Clear existing tasks to avoid duplicate test entries on re-run
-    cursor.execute("DELETE FROM tasks;")
+    # 1. Create or retrieve demo user
+    cursor.execute("SELECT id FROM users WHERE email = ?", (DEMO_USER["email"],))
+    user_row = cursor.fetchone()
+    if user_row is None:
+        pw_hash = generate_password_hash(DEMO_USER["password"])
+        cursor.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            (DEMO_USER["name"], DEMO_USER["email"], pw_hash)
+        )
+        user_id = cursor.lastrowid
+    else:
+        user_id = user_row["id"]
 
-    # Insert sample tasks with parameterized SQL to prevent SQL injection
+    # 2. Clear demo user's existing tasks to avoid duplicate test entries on re-run
+    cursor.execute("DELETE FROM tasks WHERE user_id = ?;", (user_id,))
+
+    # 3. Insert sample tasks with parameterized SQL
     for task in SAMPLE_TASKS:
         cursor.execute(
             """
-            INSERT INTO tasks (title, description, priority, due_date, status)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO tasks (user_id, title, description, priority, due_date, status)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (task["title"], task["description"], task["priority"], task["due_date"], task["status"])
+            (user_id, task["title"], task["description"], task["priority"], task["due_date"], task["status"])
         )
 
     conn.commit()
-    cursor.execute("SELECT COUNT(*) FROM tasks;")
+    cursor.execute("SELECT COUNT(*) FROM tasks WHERE user_id = ?;", (user_id,))
     count = cursor.fetchone()[0]
     conn.close()
-    print(f"Successfully seeded database with {count} sample tasks at {db_path}!")
+    print(f"Successfully seeded database with {count} sample tasks for user '{DEMO_USER['email']}' at {db_path}!")
 
 
 if __name__ == "__main__":

@@ -4,13 +4,13 @@
 
 ## 1. Project Information
 
-- **Project Title**: Student Task Manager (Full-Stack Academic Coursework & Deadline Tracking Web Application)
+- **Project Title**: Student Task Manager (Full-Stack Multi-User Academic Coursework & Deadline Tracking Web Application)
 - **Author / Student Name**: [Student Name Placeholder]
 - **Roll Number / Student ID**: [Student ID Placeholder]
 - **Course / Degree**: [Course / Degree Placeholder]
 - **Institution**: [Institution Name Placeholder]
 - **Date of Submission**: September 2026
-- **Technology Stack**: Python (Flask), SQLite3, HTML5, CSS3, JavaScript (ES6+), Pytest
+- **Technology Stack**: Python (Flask), SQLite3, HTML5, CSS3, JavaScript (ES6+), Pytest, Werkzeug Security, Gunicorn
 
 ---
 
@@ -18,39 +18,39 @@
 
 Academic success in contemporary higher education requires students to balance numerous demanding courses, laboratory assignments, collaborative group projects, and rigid examination schedules. As coursework volumes increase, students often encounter substantial difficulty keeping track of overlapping deadlines, resulting in missed submissions, unnecessary academic stress, and inefficient time allocation.
 
-Existing generic productivity software and commercial project management tools are frequently over-engineered for student needs. They introduce steep learning curves, excessive configuration requirements, and subscription paywalls, or lack dedicated contextual features such as academic priority tracking and due-date status indicators. Conversely, paper notebooks and static notes lack dynamic sorting, search capabilities, and instant task completion metrics.
+Existing generic productivity software and commercial project management tools are frequently over-engineered for student needs. They introduce steep learning curves, excessive configuration requirements, and subscription paywalls, or lack dedicated contextual features such as academic priority tracking and due-date status indicators. Furthermore, shared computers in academic libraries and computer labs require personal authenticated student accounts with strict data isolation.
 
-To overcome these challenges, this project presents the **Student Task Manager**—a lightweight, intuitive, and distraction-free full-stack web application. It provides students with an accessible centralized dashboard to create, categorize, prioritize, update, and monitor academic tasks in real time without external software bloat or unnecessary dependencies.
+To overcome these challenges, this project presents the **Student Task Manager**—a lightweight, intuitive, and distraction-free full-stack web application. It provides students with a secure personal dashboard to create, categorize, prioritize, update, and monitor academic tasks in real time with complete data isolation and no external framework bloat.
 
 ---
 
 ## 3. Project Objectives
 
 The primary objectives of this project are:
-1. **Core Task Lifecycle Management**: Deliver full Create, Read, Update, Delete (CRUD) functionality for academic tasks with title, description, priority, due date, and status attributes.
-2. **Dynamic Prioritization & Due-Date Tracking**: Implement visual color-coded priority indicators (`High`, `Medium`, `Low`) and automatic deadline notifications (`Overdue`, `Due Today`, `Due Tomorrow`).
-3. **Instant Search & Real-Time Filtering**: Allow students to filter tasks instantaneously across multiple criteria (Status and Priority) and execute debounced title/description keyword searches.
-4. **Lightweight & Accessible Architecture**: Develop a robust backend with Python/Flask and SQLite, paired with a responsive vanilla HTML/CSS/JS frontend requiring no commercial APIs or heavy frontend frameworks.
-5. **Security & Data Integrity**: Ensure parameterized SQL execution against SQL injection, strict server-side input validation, HTML escaping against Cross-Site Scripting (XSS), and database indexing for query performance.
-6. **Comprehensive Automated Verification**: Establish a suite of automated unit and integration tests using `pytest` ensuring 100% test pass rates across all REST endpoints.
+1. **User Authentication & Data Isolation**: Implement secure registration (`/signup`), login (`/login`), and logout (`/logout`) using password hashing (`werkzeug.security`) and session-based state management, ensuring no student can access or modify another student's coursework.
+2. **Core Task Lifecycle Management**: Deliver full Create, Read, Update, Delete (CRUD) functionality for academic tasks with title, description, priority, due date, and status attributes.
+3. **Dynamic Prioritization & Due-Date Tracking**: Implement visual color-coded priority indicators (`High`, `Medium`, `Low`) and automatic deadline notifications (`Overdue`, `Due Today`, `Due Tomorrow`).
+4. **Instant Search & Real-Time Filtering**: Allow students to filter tasks instantaneously across multiple criteria (Status and Priority) and execute debounced title/description keyword searches.
+5. **Modern Linear-Inspired Minimalist UI**: Design a unified, responsive interface featuring top navigation, quick summary metrics, unified task modals, custom animated checkboxes, and mobile-friendly layouts.
+6. **Comprehensive Automated Verification**: Establish a suite of automated unit and integration tests using `pytest` verifying 100% test pass rates across authentication, validation, route protection, and task CRUD.
 
 ---
 
 ## 4. Development Process
 
-The project followed a disciplined 11-step agile development lifecycle:
+The project followed a disciplined agile development lifecycle:
 
-1. **Environment Setup**: Configured a Python 3.14 virtual environment (`venv`) with `requirements.txt` containing `Flask` and `pytest`. Configured `.gitignore` to protect environment variables, bytecode, and local database files.
-2. **Project Creation & Git Initialization**: Initialized the project directory and Git repository with modular folder separation (`/templates`, `/static/css`, `/static/js`, `/tests`).
-3. **Planning & Architecture Design**: Formulated the data model, REST API contracts, and user experience requirements with the AI coding assistant before writing production code.
-4. **Database Design & Schema Definition**: Authored `schema.sql` defining the `tasks` table with column constraints (`CHECK` constraints for priority and status) and query optimization indexes (`idx_tasks_status`, `idx_tasks_priority`, `idx_tasks_due_date`).
-5. **Database Initialization & Seeding**: Implemented `database.py` with Flask application context connection management and `seed.py` with realistic sample student tasks.
-6. **Backend Development (Flask REST API)**: Built `app.py` utilizing the application factory pattern (`create_app`), implementing endpoints for `GET /api/tasks`, `GET /api/tasks/<id>`, `POST /api/tasks`, `PUT /api/tasks/<id>`, `PATCH /api/tasks/<id>/complete`, `DELETE /api/tasks/<id>`, and `GET /api/tasks/search`.
-7. **Frontend Development (HTML/CSS/JS)**: Built `templates/index.html`, `static/css/style.css`, and `static/js/app.js` featuring stats cards, an interactive add-task sidebar, filter segments, an edit modal, and toast alerts.
-8. **End-to-End Feature Implementation**: Verified that creating, editing, deleting, status toggling, searching, and filtering execute seamlessly across client and server.
-9. **Automated Testing**: Created `tests/conftest.py` (temporary SQLite test client fixtures) and `tests/test_api.py` covering all 16 API endpoints and validation edge cases.
-10. **Rigorous Code Review & Refactoring**: Conducted a deep code review addressing SQL injection, XSS escaping, strict ISO date parsing, string size bounds, DRY validation, and environment configuration.
-11. **Documentation & Final Git Commit**: Authored `README.md` and this project report, verifying final application execution and committing to the Git version control repository.
+1. **Environment Setup & Configuration**: Configured a Python 3.14 virtual environment (`venv`) with `Flask`, `werkzeug`, `gunicorn`, and `pytest`.
+2. **Project Creation & Git Initialization**: Initialized the project repository with clean modular separation (`/templates`, `/static/css`, `/static/js`, `/tests`).
+3. **Initial Architecture & Planning**: Designed initial single-user task CRUD models and REST API contracts.
+4. **Database Design & Schema Definition**: Authored `schema.sql` defining relational tables (`users`, `tasks`) with foreign keys, constraints, and query indexes (`idx_users_email`, `idx_tasks_user_id`, `idx_tasks_status`, `idx_tasks_priority`, `idx_tasks_due_date`).
+5. **Database Migration & Seeding**: Implemented `database.py` with automatic schema migrations and `seed.py` with a demo student account (`demo@student.edu`) and realistic coursework.
+6. **Authentication & Backend Development**: Built `app.py` utilizing the application factory pattern, `@login_required` decorator, session management, brute-force login throttling, and user-isolated API endpoints.
+7. **Frontend Development & UI Redesign**: Crafted modern templates (`login.html`, `signup.html`, `index.html`), a Linear-inspired CSS system (`style.css`), and dynamic vanilla JavaScript (`app.js`).
+8. **End-to-End Feature Verification**: Verified all workflows (signup, login, task create, modal edit, checkbox toggle, search, filter, logout) execute smoothly.
+9. **Automated Testing Suite**: Created `tests/conftest.py` and `tests/test_api.py` with 15 comprehensive test cases covering registration validation, authentication, route protections, and user isolation.
+10. **Code Review & Security Hardening**: Validated SQL parameterization, XSS escaping, ISO date validation, string boundaries, and rate limiting.
+11. **Production Deployment Configuration**: Added `Procfile`, `runtime.txt`, and Gunicorn support for one-click cloud deployment.
 
 ---
 
@@ -61,17 +61,18 @@ The project followed a disciplined 11-step agile development lifecycle:
 ```text
 +-------------------------------------------------------------------------+
 |                          Client (Web Browser)                           |
-|  - HTML5 Semantic Structure (templates/index.html)                       |
-|  - Responsive CSS3 Styling & Priority Badges (static/css/style.css)      |
-|  - Vanilla JS Fetch API, Live Search & DOM Rendering (static/js/app.js) |
+|  - HTML5 Pages: Login, Signup, Dashboard (templates/*.html)             |
+|  - Linear-Inspired Modern CSS3 Styling (static/css/style.css)           |
+|  - Vanilla JS Fetch API, Modal & Live Filters (static/js/app.js)        |
 +-------------------------------------------------------------------------+
                                     │ ▲
                HTTP Requests (JSON) │ │ HTTP Responses (JSON / HTML)
                                     ▼ │
 +-------------------------------------------------------------------------+
 |                           Flask Web Server                              |
-|  - Application Factory & Routes (app.py)                                 |
-|  - Centralized Input Sanitization & Validation                          |
+|  - App Factory & Routes: /login, /signup, /logout, /api/tasks (app.py)  |
+|  - Session Authentication & @login_required Decorator                   |
+|  - Password Hashing (werkzeug.security) & Centralized Sanitization      |
 |  - Flask Application Context Connection Management (g object)           |
 +-------------------------------------------------------------------------+
                                     │ ▲
@@ -79,77 +80,69 @@ The project followed a disciplined 11-step agile development lifecycle:
                                     ▼ │
 +-------------------------------------------------------------------------+
 |                        SQLite Database (tasks.db)                       |
-|  - Table: tasks (id, title, description, priority, due_date, status)    |
-|  - Indexes: idx_tasks_status, idx_tasks_priority, idx_tasks_due_date    |
+|  - Users Table: id, name, email, password_hash, created_at              |
+|  - Tasks Table: id, user_id (FK), title, description, priority, due_date|
+|  - Performance Indexes: user_id, email, status, priority, due_date      |
 +-------------------------------------------------------------------------+
 ```
 
-### Request/Response Lifecycle Example: Adding a New Task
+### Request/Response Lifecycle Example: Creating a Task with User Isolation
 
-1. **User Action**: The student inputs task details (*Title: "CS301 Lab 2", Priority: "High", Due Date: "2026-09-25"*) into the sidebar form and clicks **Add Task**.
-2. **Client-Side Event**: `static/js/app.js` intercepts form submission (`e.preventDefault()`), validates non-empty inputs, and sends a `POST` request to `/api/tasks` with a JSON payload.
-3. **Server-Side Validation**: `app.py` receives the payload in `create_task()` and executes `validate_and_parse_task_payload()`:
-   - Verifies `title` is non-empty and under 150 characters.
-   - Verifies `priority` is in `{'Low', 'Medium', 'High'}`.
-   - Parses and validates `due_date` format using `datetime.strptime(..., "%Y-%m-%d")`.
-4. **Database Execution**: The connection helper `database.get_db()` obtains the SQLite connection. A parameterized `INSERT INTO tasks (title, description, priority, due_date, status) VALUES (?, ?, ?, ?, ?)` query is executed safely.
-5. **Server Response**: The server commits the transaction, fetches the created task record, and returns a `201 Created` HTTP response with `{ "message": "Task created successfully.", "task": {...} }`.
-6. **DOM Update**: `static/js/app.js` receives the `201` response, triggers a green success toast notification, clears the form, dynamically updates the dashboard stats counters, and prepends the new task card to the UI.
+1. **User Action**: An authenticated student clicks **+ New Task** in the navbar, enters assignment details in the modal (*Title: "CS301 Lab 2", Priority: "High", Due Date: "2026-09-25"*), and clicks **Save Task**.
+2. **Client-Side Event**: `static/js/app.js` sends a `POST` request to `/api/tasks` with JSON payload. The browser automatically includes the signed Flask session cookie.
+3. **Session & Auth Check**: The `@login_required` decorator extracts `session["user_id"]`. If missing, it immediately aborts with `401 Unauthorized`.
+4. **Server-Side Validation**: `app.py` parses and validates the payload, ensuring non-empty title (< 150 chars), valid priority enum, and strict `YYYY-MM-DD` date formatting.
+5. **Isolated Database Insertion**: The server executes `INSERT INTO tasks (user_id, title, description, priority, due_date, status) VALUES (?, ?, ?, ?, ?, ?)` binding `session["user_id"]`.
+6. **Server Response**: The server commits the transaction and returns `201 Created` with `{ "message": "Task created successfully.", "task": {...} }`.
+7. **DOM Update**: `static/js/app.js` closes the modal, triggers a green toast notification, updates live summary counters, and renders the new task card in the feed.
 
 ---
 
 ## 6. Database Design
 
-The database schema is defined in `schema.sql` utilizing SQLite's native relational engine.
+The relational schema is implemented in SQLite with table constraints and foreign key relationships.
 
-### Table Schema: `tasks`
+### 1. `users` Table
+| Column Name | Data Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `INTEGER` | `PRIMARY KEY AUTOINCREMENT` | Unique student account identifier |
+| `name` | `TEXT` | `NOT NULL` | Full student name |
+| `email` | `TEXT` | `NOT NULL UNIQUE` | Unique academic email address |
+| `password_hash` | `TEXT` | `NOT NULL` | Secure password hash |
+| `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | Account creation timestamp |
 
+### 2. `tasks` Table
 | Column Name | Data Type | Constraints & Defaults | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | `INTEGER` | `PRIMARY KEY AUTOINCREMENT` | Unique identifier for each task record |
-| `title` | `TEXT` | `NOT NULL` | Short title/name of the academic assignment |
-| `description` | `TEXT` | `DEFAULT ''` | Detailed notes, links, or submission instructions |
+| `id` | `INTEGER` | `PRIMARY KEY AUTOINCREMENT` | Unique task identifier |
+| `user_id` | `INTEGER` | `NOT NULL REFERENCES users(id) ON DELETE CASCADE` | Foreign key linking task to user |
+| `title` | `TEXT` | `NOT NULL` | Short title of assignment |
+| `description` | `TEXT` | `DEFAULT ''` | Detailed notes or instructions |
 | `priority` | `TEXT` | `NOT NULL CHECK(priority IN ('Low', 'Medium', 'High')) DEFAULT 'Medium'` | Coursework urgency level |
-| `due_date` | `TEXT` | `NULL` | Submission deadline in ISO format (`YYYY-MM-DD`) |
-| `status` | `TEXT` | `NOT NULL CHECK(status IN ('Pending', 'Completed')) DEFAULT 'Pending'` | Completion status of the task |
-| `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | Timestamp of record creation |
-
-### Database Indexes
-
-To ensure high performance as the task list expands, three performance indexes are created:
-- `CREATE INDEX idx_tasks_status ON tasks(status);`
-- `CREATE INDEX idx_tasks_priority ON tasks(priority);`
-- `CREATE INDEX idx_tasks_due_date ON tasks(due_date);`
+| `due_date` | `TEXT` | `NULL` | Submission deadline (`YYYY-MM-DD`) |
+| `status` | `TEXT` | `NOT NULL CHECK(status IN ('Pending', 'Completed')) DEFAULT 'Pending'` | Completion status |
+| `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | Record creation timestamp |
 
 ---
 
 ## 7. Features Implemented
 
-1. **Dashboard Overview & Statistics**: Live dashboard displaying aggregate metrics for Total Tasks, Pending Tasks, Completed Tasks, and High-Priority tasks.
-2. **Task Creation**: Intuitive sidebar form with client-side and server-side validation.
-3. **Interactive Task Cards**: Distinct cards with custom color-coded badges for priorities (Crimson for High, Amber for Medium, Blue for Low) and statuses (Green for Completed, Slate for Pending).
-4. **Instant Completion Toggle**: One-click checkbox triggering a `PATCH` request to toggle status between `Pending` and `Completed` with strikethrough visual feedback.
-5. **Modal Edit Functionality**: Inline modal dialog enabling modification of task title, notes, priority, due date, and status without page refreshes.
-6. **Task Deletion**: Immediate deletion with confirmation dialog to prevent accidental data loss.
-7. **Real-Time Debounced Search**: Dynamic filtering as the user types, querying both titles and descriptions.
-8. **Segmented Filter Controls**: Instant button-group filtering by status and priority with a one-click reset action.
-9. **Smart Date Calculation**: Dynamic tags identifying tasks that are *Overdue*, *Due Today*, or *Due Tomorrow*.
-10. **Toast Notification System**: Animated, auto-dismissing toast notifications confirming user actions.
+1. **User Authentication**: Secure signup with name, email, password length, and confirmation matching; login with credential checking and password visibility toggle; secure logout.
+2. **Strict User Isolation**: Database queries enforce user isolation; no student can access or manipulate another student's coursework.
+3. **Linear-Inspired UI Overhaul**: Modern navigation bar, user avatar pill, stat metric cards, custom checkboxes, and responsive layout.
+4. **Unified Task Modal**: Modal dialog for creating and modifying tasks without losing page context.
+5. **Live Statistics Strip**: Dynamic counters for Total Coursework, Pending Tasks, Completed Tasks, and Overdue Tasks.
+6. **Task Status Toggle**: Instant checkbox toggling with emerald status pill and strikethrough styling.
+7. **Debounced Real-Time Search**: Substring filtering across task titles and descriptions.
+8. **Segmented Filter Controls**: Instant button-group filtering by status and priority with one-click reset.
+9. **Smart Due-Date Flags**: Dynamic visual tags for *Overdue*, *Due Today*, and *Due Tomorrow*.
+10. **Toast Notification System**: Animated feedback banners for every user action.
 
 ---
 
 ## 8. Testing Summary
 
-Automated testing was implemented using `pytest` and Flask's built-in test client with isolated SQLite database instances.
-
-### Automated Test Coverage
-- **HTML Route**: Verified `GET /` serves status 200 with proper HTML template rendering.
-- **Task Creation**: Tested valid task creation (`201`), missing titles (`400`), invalid priority strings (`400`), malformed due dates (`400`), and oversized title inputs (`400`).
-- **Task Retrieval**: Tested single task lookup (`200`), missing ID handling (`404`), and full list retrieval (`200`).
-- **Task Update**: Tested valid full updates (`200`) and invalid payload updates (`400`).
-- **Status Toggling**: Tested `PATCH /api/tasks/<id>/complete` toggling state forwards and backwards.
-- **Task Deletion**: Tested `DELETE /api/tasks/<id>` and verified subsequent 404 lookup.
-- **Filtering & Search**: Tested query parameter filters (`?status=`, `?priority=`) and keyword searches (`/api/tasks/search?q=`).
+Automated testing was implemented using `pytest` with isolated temporary SQLite databases.
 
 ### Actual Pytest Execution Output
 
@@ -158,26 +151,25 @@ $ pytest -v
 ============================= test session starts ==============================
 platform darwin -- Python 3.14.7, pytest-8.3.2, pluggy-1.6.0
 rootdir: /Users/sanjiv215/Desktop/Projects/IITP/student-task-manager
-collected 16 items
+collected 15 items
 
-tests/test_api.py::test_index_page PASSED                                [  6%]
-tests/test_api.py::test_create_task_success PASSED                       [ 12%]
-tests/test_api.py::test_create_task_validation_missing_title PASSED      [ 18%]
-tests/test_api.py::test_create_task_validation_invalid_priority PASSED   [ 25%]
-tests/test_api.py::test_create_task_validation_invalid_due_date PASSED   [ 31%]
-tests/test_api.py::test_create_task_validation_oversized_title PASSED    [ 37%]
-tests/test_api.py::test_get_single_task PASSED                           [ 43%]
-tests/test_api.py::test_get_task_not_found PASSED                        [ 50%]
-tests/test_api.py::test_list_all_tasks PASSED                            [ 56%]
-tests/test_api.py::test_update_task PASSED                               [ 62%]
-tests/test_api.py::test_update_task_invalid_payload PASSED               [ 68%]
-tests/test_api.py::test_toggle_complete_task PASSED                      [ 75%]
-tests/test_api.py::test_delete_task PASSED                               [ 81%]
-tests/test_api.py::test_filter_tasks_by_status PASSED                    [ 87%]
-tests/test_api.py::test_filter_tasks_by_priority PASSED                  [ 93%]
-tests/test_api.py::test_search_tasks_by_title_and_description PASSED     [100%]
+tests/test_api.py::test_signup_success PASSED                            [  6%]
+tests/test_api.py::test_signup_validation_missing_name PASSED            [ 13%]
+tests/test_api.py::test_signup_validation_invalid_email PASSED           [ 20%]
+tests/test_api.py::test_signup_validation_short_password PASSED          [ 26%]
+tests/test_api.py::test_signup_validation_password_mismatch PASSED       [ 33%]
+tests/test_api.py::test_signup_validation_duplicate_email PASSED         [ 40%]
+tests/test_api.py::test_login_success_and_logout PASSED                  [ 46%]
+tests/test_api.py::test_login_invalid_credentials PASSED                 [ 53%]
+tests/test_api.py::test_unauthenticated_api_protection PASSED            [ 60%]
+tests/test_api.py::test_user_data_isolation PASSED                       [ 66%]
+tests/test_api.py::test_create_task_authenticated PASSED                 [ 73%]
+tests/test_api.py::test_task_validation_errors PASSED                    [ 80%]
+tests/test_api.py::test_update_and_toggle_complete PASSED                [ 86%]
+tests/test_api.py::test_delete_task_authenticated PASSED                 [ 93%]
+tests/test_api.py::test_filter_and_search_tasks PASSED                   [100%]
 
-============================== 16 passed in 0.08s ==============================
+============================== 15 passed in 0.71s ==============================
 ```
 
 ---
@@ -188,72 +180,82 @@ tests/test_api.py::test_search_tasks_by_title_and_description PASSED     [100%]
 
 ### Screenshot 1: Home/Dashboard
 <!-- ![Screenshot 1: Home/Dashboard](screenshots/01_dashboard.png) -->
-*Caption: Student Task Manager main page featuring real-time overview metrics and dashboard layout.*
+*Caption: Redesigned dashboard displaying header navbar with user pill, stats metric strip, and task list feed.*
 
 ---
 
 ### Screenshot 2: Add Task
 <!-- ![Screenshot 2: Add Task](screenshots/02_add_task.png) -->
-*Caption: Form for entering task title, priority, due date, and supplementary description.*
+*Caption: Unified modal window for adding new coursework with priority selector and deadline picker.*
 
 ---
 
 ### Screenshot 3: Task List
 <!-- ![Screenshot 3: Task List](screenshots/03_task_list.png) -->
-*Caption: Display of all active student tasks with visual color-coded priority indicators.*
+*Caption: Main task feed rendering student tasks with custom checkboxes and color-coded priority badges.*
 
 ---
 
 ### Screenshot 4: Edit/Update Task
 <!-- ![Screenshot 4: Edit/Update Task](screenshots/04_edit_task.png) -->
-*Caption: Interactive edit modal pre-filled with task details for seamless modification.*
+*Caption: Interactive edit modal pre-filled with existing task data for inline modifications.*
 
 ---
 
 ### Screenshot 5: Task Completed
 <!-- ![Screenshot 5: Task Completed](screenshots/05_completed_task.png) -->
-*Caption: Academic task marked as Completed with green badge and crossed-out title styling.*
+*Caption: Academic task marked as Completed with green status pill and strikethrough title styling.*
 
 ---
 
 ### Screenshot 6: Filter/Search
 <!-- ![Screenshot 6: Filter/Search](screenshots/06_filter_search.png) -->
-*Caption: Real-time filtering and live search showing only High Priority coursework matching keywords.*
+*Caption: Dashboard filtering tasks in real time by High Priority and keyword search.*
 
 ---
 
 ### Screenshot 7: Database
 <!-- ![Screenshot 7: Database](screenshots/07_database.png) -->
-*Caption: SQLite tasks table viewed in DB Browser for SQLite showing structured relational data.*
+*Caption: SQLite database tables (users and tasks) viewed in DB Browser for SQLite showing relational schema.*
 
 ---
 
 ### Screenshot 8: Testing Output
 <!-- ![Screenshot 8: Testing Output](screenshots/08_testing_output.png) -->
-*Caption: Terminal window demonstrating all 16 automated pytest tests passing successfully.*
+*Caption: Terminal output demonstrating 15 passing automated pytest test cases covering auth and task CRUD.*
 
 ---
 
-### Screenshot 9: Claude Code / Antigravity Interaction
-<!-- ![Screenshot 9: AI Interaction](screenshots/09_ai_interaction.png) -->
-*Caption: AI pair programming session assisting with architecture, code review, and automated testing.*
+### Screenshot 9: Login Screen
+<!-- ![Screenshot 9: Login Screen](screenshots/09_login_screen.png) -->
+*Caption: Clean student authentication login page with show/hide password toggle and demo credentials.*
 
 ---
 
-### Screenshot 10: Final Application
-<!-- ![Screenshot 10: Final Application](screenshots/10_final_application.png) -->
-*Caption: Fully working Student Task Manager web application running locally in the browser.*
+### Screenshot 10: Sign Up Screen
+<!-- ![Screenshot 10: Sign Up Screen](screenshots/10_signup_screen.png) -->
+*Caption: Student account registration screen with full name, academic email, and password validation.*
+
+---
+
+### Screenshot 11: Claude Code / Antigravity Interaction
+<!-- ![Screenshot 11: AI Interaction](screenshots/11_ai_interaction.png) -->
+*Caption: AI pair programming session assisting with auth architecture, UI redesign, and test automation.*
+
+---
+
+### Screenshot 12: Final Application
+<!-- ![Screenshot 12: Final Application](screenshots/12_final_application.png) -->
+*Caption: Complete working Student Task Manager web application running with authenticated multi-user support.*
 
 ---
 
 ## 10. Challenges Faced & AI-Assisted Development Reflection
 
-During the development process, challenges arose regarding state synchronization between the frontend filtering controls, maintaining accurate live task counter statistics without generating redundant network roundtrips, and handling SQLite application context lifecycles cleanly within Flask. 
-
-Collaborating with the AI coding assistant (Claude Code / Antigravity) accelerated resolution of these bottlenecks. The assistant provided immediate architectural guidance by introducing a centralized payload validation helper, designing modular pytest fixtures using isolated temporary databases, and structuring the frontend JavaScript with local state caching. This pair-programming workflow ensured clean separation of concerns, robust security practices, and reliable full-stack execution.
+Adding multi-user authentication to an existing codebase required careful architectural planning to ensure backwards compatibility, non-destructive database migrations for existing task records, and bulletproof user data isolation. Collaborating with the AI coding assistant (Claude Code / Antigravity) accelerated the design of clean database migration routines, session authentication decorators, and comprehensive pytest fixtures that test both authenticated and unauthorized states. Additionally, the AI assisted in establishing a modern Linear-inspired design system with CSS custom properties, ensuring cohesive aesthetics across authentication screens and the dashboard.
 
 ---
 
 ## 11. Conclusion
 
-The **Student Task Manager** project successfully fulfills all initial functional and non-functional requirements. It delivers a fast, responsive, and secure web application that enables students to organize coursework, monitor deadlines, and prioritize tasks effectively. Built using clean Python, Flask, SQLite, and vanilla frontend technologies, the application demonstrates solid full-stack engineering principles, thorough automated test coverage, and a distraction-free user experience.
+The **Student Task Manager** project represents a complete, secure, and modern full-stack web application. By integrating robust session-based authentication, strict data isolation, intuitive task management workflows, and a refined Linear-inspired user interface, the application equips students with an effective, distraction-free tool to manage their academic coursework and deadlines with confidence.

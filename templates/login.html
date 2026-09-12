@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Student Task Manager</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="auth-body">
+  <div class="auth-wrapper">
+    <div class="auth-header-brand">
+      <div class="brand-logo-circle">🎓</div>
+      <h1>Student Task Manager</h1>
+      <p class="auth-tagline">Log in to track your coursework & deadlines</p>
+    </div>
+
+    <div class="card auth-card">
+      <h2>Welcome Back</h2>
+      <p class="auth-subtext">Enter your academic email and password to access your dashboard.</p>
+
+      {% if error %}
+      <div class="alert alert-danger" role="alert">
+        <span>⚠️</span> <span>{{ error }}</span>
+      </div>
+      {% endif %}
+
+      <form action="/login" method="POST" class="auth-form" id="login-form">
+        <div class="form-group">
+          <label for="login-email">Academic Email</label>
+          <input 
+            type="email" 
+            id="login-email" 
+            name="email" 
+            placeholder="student@university.edu" 
+            value="{{ email or '' }}" 
+            required 
+            autocomplete="email"
+            autofocus
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <div class="password-input-group">
+            <input 
+              type="password" 
+              id="login-password" 
+              name="password" 
+              placeholder="••••••••" 
+              required 
+              autocomplete="current-password"
+            >
+            <button type="button" class="btn-toggle-pw" id="toggle-login-pw" title="Show / Hide Password">👁️</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-auth">
+          <span>Log In</span>
+        </button>
+      </form>
+
+      <div class="auth-demo-hint">
+        <span class="hint-title">💡 Demo Account:</span>
+        <code>demo@student.edu</code> / <code>Password123!</code>
+      </div>
+
+      <div class="auth-footer-link">
+        <p>Don't have an account? <a href="/signup">Sign up for free &rarr;</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const toggleBtn = document.getElementById("toggle-login-pw");
+    const pwInput = document.getElementById("login-password");
+    if (toggleBtn && pwInput) {
+      toggleBtn.addEventListener("click", () => {
+        const isPassword = pwInput.type === "password";
+        pwInput.type = isPassword ? "text" : "password";
+        toggleBtn.textContent = isPassword ? "🙈" : "👁️";
+      });
+    }
+  </script>
+</body>
+</html>

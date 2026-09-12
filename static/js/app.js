@@ -4,7 +4,7 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // State management
+  // State
   let tasks = [];
   let activeStatusFilter = "";
   let activePriorityFilter = "";
@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // DOM Elements
   const tasksContainer = document.getElementById("tasks-container");
   const emptyState = document.getElementById("empty-state");
+  const emptyStateAddBtn = document.getElementById("empty-state-add-btn");
   const visibleCountBadge = document.getElementById("visible-count");
   const currentDateDisplay = document.getElementById("current-date-display");
 
@@ -21,30 +22,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const statTotal = document.getElementById("stat-total");
   const statPending = document.getElementById("stat-pending");
   const statCompleted = document.getElementById("stat-completed");
-  const statHigh = document.getElementById("stat-high");
+  const statOverdue = document.getElementById("stat-overdue");
 
-  // Add Task Form
-  const addTaskForm = document.getElementById("add-task-form");
+  // Search & Filter DOM
   const searchInput = document.getElementById("search-input");
   const clearSearchBtn = document.getElementById("clear-search-btn");
   const resetFiltersBtn = document.getElementById("reset-filters-btn");
   const statusFilterButtons = document.querySelectorAll("#status-filters .segment-btn");
   const priorityFilterButtons = document.querySelectorAll("#priority-filters .segment-btn");
 
-  // Edit Modal DOM
-  const editModal = document.getElementById("edit-modal");
-  const editTaskForm = document.getElementById("edit-task-form");
-  const editTaskId = document.getElementById("edit-task-id");
-  const editTaskTitle = document.getElementById("edit-task-title");
-  const editTaskDesc = document.getElementById("edit-task-desc");
-  const editTaskPriority = document.getElementById("edit-task-priority");
-  const editTaskDueDate = document.getElementById("edit-task-due-date");
-  const editTaskStatus = document.getElementById("edit-task-status");
-  const closeModalBtn = document.getElementById("close-modal-btn");
-  const cancelModalBtn = document.getElementById("cancel-modal-btn");
+  // Modal DOM
+  const taskModal = document.getElementById("task-modal");
+  const taskForm = document.getElementById("task-form");
+  const modalTitle = document.getElementById("modal-title");
+  const formTaskId = document.getElementById("form-task-id");
+  const formTitle = document.getElementById("form-task-title");
+  const formDesc = document.getElementById("form-task-desc");
+  const formPriority = document.getElementById("form-task-priority");
+  const formDueDate = document.getElementById("form-task-due-date");
+  const formStatusGroup = document.getElementById("form-status-group");
+  const formStatus = document.getElementById("form-task-status");
+  const modalCloseBtn = document.getElementById("modal-close-btn");
+  const modalCancelBtn = document.getElementById("modal-cancel-btn");
+  const openNewTaskModalBtn = document.getElementById("open-new-task-modal-btn");
+  const quickAddBtn = document.getElementById("btn-quick-add");
 
   // -----------------------------------------------------------------
-  // Initial Setup
+  // Initialization
   // -----------------------------------------------------------------
   function init() {
     renderCurrentDate();
@@ -53,6 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderCurrentDate() {
+    if (!currentDateDisplay) return;
     const now = new Date();
     const options = { weekday: "short", month: "short", day: "numeric", year: "numeric" };
     currentDateDisplay.textContent = `📅 ${now.toLocaleDateString(undefined, options)}`;
@@ -63,6 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // -----------------------------------------------------------------
   function showToast(message, type = "success") {
     const container = document.getElementById("toast-container");
+    if (!container) return;
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
     const icon = type === "success" ? "✓" : "⚠️";
@@ -77,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // Helper: Escape HTML to avoid XSS
+  // Helper: Escape HTML
   // -----------------------------------------------------------------
   function escapeHtml(str) {
     if (!str) return "";
@@ -93,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Helper: Format Due Date
   // -----------------------------------------------------------------
   function formatDueDate(dateString) {
-    if (!dateString) return { text: "No due date", className: "" };
+    if (!dateString) return { text: "No deadline", className: "" };
 
     const due = new Date(dateString + "T00:00:00");
     const today = new Date();
@@ -103,45 +109,54 @@ document.addEventListener("DOMContentLoaded", () => {
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return { text: `Overdue (${dateString})`, className: "due-overdue" };
+      return { text: `Overdue (${dateString})`, className: "due-overdue", isOverdue: true };
     } else if (diffDays === 0) {
-      return { text: "Due Today", className: "due-today" };
+      return { text: "Due Today", className: "due-today", isDueToday: true };
     } else if (diffDays === 1) {
       return { text: "Due Tomorrow", className: "due-today" };
     } else {
       const options = { month: "short", day: "numeric" };
-      return { text: `Due: ${due.toLocaleDateString(undefined, options)}`, className: "" };
+      return { text: `Due ${due.toLocaleDateString(undefined, options)}`, className: "" };
     }
   }
 
   // -----------------------------------------------------------------
-  // Stats Calculation Helper
+  // Stats Calculation
   // -----------------------------------------------------------------
   function renderStats(allTasks) {
     const total = allTasks.length;
     const completed = allTasks.filter(t => t.status === "Completed").length;
     const pending = total - completed;
-    const high = allTasks.filter(t => t.priority === "High" && t.status === "Pending").length;
 
-    statTotal.textContent = total;
-    statPending.textContent = pending;
-    statCompleted.textContent = completed;
-    statHigh.textContent = high;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueCount = allTasks.filter(t => {
+      if (t.status === "Completed" || !t.due_date) return false;
+      const due = new Date(t.due_date + "T00:00:00");
+      return due.getTime() <= today.getTime();
+    }).length;
+
+    if (statTotal) statTotal.textContent = total;
+    if (statPending) statPending.textContent = pending;
+    if (statCompleted) statCompleted.textContent = completed;
+    if (statOverdue) statOverdue.textContent = overdueCount;
   }
 
   // -----------------------------------------------------------------
-  // API Calls & Fetching
+  // API Fetching & Filtering
   // -----------------------------------------------------------------
   async function fetchTasksAndStats() {
     try {
-      // 1. Fetch complete tasks for statistics and base list
       const res = await fetch("/api/tasks");
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       if (!res.ok) throw new Error("Failed to load tasks");
       const allTasks = await res.json();
       tasks = allTasks;
       renderStats(allTasks);
-
-      // 2. Filter / Search locally or via endpoint
       applyCurrentFilters();
     } catch (err) {
       console.error(err);
@@ -198,9 +213,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       card.innerHTML = `
         <div class="task-card-header">
-          <div class="task-title-group">
-            <input type="checkbox" class="task-checkbox" ${isCompleted ? "checked" : ""} title="Mark complete/pending">
-            <h3 class="task-title">${escapeHtml(task.title)}</h3>
+          <div class="task-checkbox-title">
+            <input type="checkbox" class="task-custom-checkbox" ${isCompleted ? "checked" : ""} title="Mark complete/pending">
+            <h4 class="task-title">${escapeHtml(task.title)}</h4>
           </div>
           <div class="task-badges">
             <span class="badge ${priorityClass}">${escapeHtml(task.priority)}</span>
@@ -208,28 +223,28 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        ${task.description ? `<p class="task-desc">${escapeHtml(task.description)}</p>` : ""}
+        ${task.description ? `<p class="task-description">${escapeHtml(task.description)}</p>` : ""}
 
         <div class="task-card-footer">
-          <div class="task-due-info ${dueInfo.className}">
+          <div class="task-due-tag ${dueInfo.className}">
             <span>🗓️</span> <span>${escapeHtml(dueInfo.text)}</span>
           </div>
-          <div class="task-actions">
+          <div class="task-card-actions">
             <button class="btn btn-secondary btn-sm edit-task-btn" title="Edit task">✏️ Edit</button>
             <button class="btn btn-danger btn-sm delete-task-btn" title="Delete task">🗑️ Delete</button>
           </div>
         </div>
       `;
 
-      // Event: Checkbox complete toggle
-      const checkbox = card.querySelector(".task-checkbox");
+      // Checkbox event
+      const checkbox = card.querySelector(".task-custom-checkbox");
       checkbox.addEventListener("change", () => toggleComplete(task.id, checkbox.checked));
 
-      // Event: Edit button
+      // Edit event
       const editBtn = card.querySelector(".edit-task-btn");
-      editBtn.addEventListener("click", () => openEditModal(task));
+      editBtn.addEventListener("click", () => openTaskModal(task));
 
-      // Event: Delete button
+      // Delete event
       const deleteBtn = card.querySelector(".delete-task-btn");
       deleteBtn.addEventListener("click", () => deleteTask(task.id, task.title));
 
@@ -238,39 +253,81 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // Actions: Add, Toggle Complete, Edit, Delete
+  // Modal Management (Add / Edit)
   // -----------------------------------------------------------------
-  addTaskForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  function openTaskModal(task = null) {
+    taskForm.reset();
+    if (task) {
+      // Edit Mode
+      modalTitle.textContent = "✏️ Edit Task";
+      formTaskId.value = task.id;
+      formTitle.value = task.title;
+      formDesc.value = task.description || "";
+      formPriority.value = task.priority;
+      formDueDate.value = task.due_date || "";
+      formStatus.value = task.status;
+      formStatusGroup.style.display = "block";
+    } else {
+      // Create Mode
+      modalTitle.textContent = "➕ Add New Task";
+      formTaskId.value = "";
+      formPriority.value = "Medium";
+      formStatusGroup.style.display = "none";
+    }
+    taskModal.style.display = "flex";
+    formTitle.focus();
+  }
 
-    const title = document.getElementById("task-title").value.trim();
-    const description = document.getElementById("task-desc").value.trim();
-    const priority = document.getElementById("task-priority").value;
-    const due_date = document.getElementById("task-due-date").value || null;
+  function closeTaskModal() {
+    taskModal.style.display = "none";
+  }
+
+  taskForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const taskId = formTaskId.value;
+    const title = formTitle.value.trim();
+    const description = formDesc.value.trim();
+    const priority = formPriority.value;
+    const due_date = formDueDate.value || null;
+    const status = formStatusGroup.style.display === "none" ? "Pending" : formStatus.value;
 
     if (!title) {
-      showToast("Please enter a task title", "error");
+      showToast("Title is required", "error");
       return;
     }
 
     try {
-      const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, priority, due_date, status: "Pending" })
-      });
+      let response;
+      if (taskId) {
+        // PUT update
+        response = await fetch(`/api/tasks/${taskId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description, priority, due_date, status })
+        });
+      } else {
+        // POST create
+        response = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description, priority, due_date, status: "Pending" })
+        });
+      }
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to create task");
+      if (!response.ok) throw new Error(data.error || "Failed to save task");
 
-      showToast("Task added successfully!", "success");
-      addTaskForm.reset();
+      showToast(taskId ? "Task updated successfully!" : "Task added successfully!", "success");
+      closeTaskModal();
       fetchTasksAndStats();
     } catch (err) {
       showToast(err.message, "error");
     }
   });
 
+  // -----------------------------------------------------------------
+  // Actions: Complete & Delete
+  // -----------------------------------------------------------------
   async function toggleComplete(taskId, isChecked) {
     try {
       const response = await fetch(`/api/tasks/${taskId}/complete`, {
@@ -309,75 +366,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function openEditModal(task) {
-    editTaskId.value = task.id;
-    editTaskTitle.value = task.title;
-    editTaskDesc.value = task.description || "";
-    editTaskPriority.value = task.priority;
-    editTaskDueDate.value = task.due_date || "";
-    editTaskStatus.value = task.status;
-    editModal.style.display = "flex";
-  }
-
-  function closeEditModal() {
-    editModal.style.display = "none";
-  }
-
-  editTaskForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const taskId = editTaskId.value;
-    const title = editTaskTitle.value.trim();
-    const description = editTaskDesc.value.trim();
-    const priority = editTaskPriority.value;
-    const due_date = editTaskDueDate.value || null;
-    const status = editTaskStatus.value;
-
-    if (!title) {
-      showToast("Title is required", "error");
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, priority, due_date, status })
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to update task");
-
-      showToast("Task updated successfully!", "success");
-      closeEditModal();
-      fetchTasksAndStats();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  });
-
   // -----------------------------------------------------------------
-  // Filter & Search Event Listeners
+  // Event Listeners
   // -----------------------------------------------------------------
   function attachEventListeners() {
-    // Search input with debounce
-    searchInput.addEventListener("input", (e) => {
-      searchQuery = e.target.value;
-      clearSearchBtn.style.display = searchQuery ? "inline-block" : "none";
+    // Open Modal buttons
+    if (openNewTaskModalBtn) openNewTaskModalBtn.addEventListener("click", () => openTaskModal(null));
+    if (quickAddBtn) quickAddBtn.addEventListener("click", () => openTaskModal(null));
+    if (emptyStateAddBtn) emptyStateAddBtn.addEventListener("click", () => openTaskModal(null));
 
-      clearTimeout(searchDebounceTimeout);
-      searchDebounceTimeout = setTimeout(() => {
+    // Close Modal buttons
+    if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeTaskModal);
+    if (modalCancelBtn) modalCancelBtn.addEventListener("click", closeTaskModal);
+    if (taskModal) {
+      taskModal.addEventListener("click", (e) => {
+        if (e.target === taskModal) closeTaskModal();
+      });
+    }
+
+    // Debounced Search
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        searchQuery = e.target.value;
+        if (clearSearchBtn) clearSearchBtn.style.display = searchQuery ? "inline-block" : "none";
+
+        clearTimeout(searchDebounceTimeout);
+        searchDebounceTimeout = setTimeout(() => {
+          applyCurrentFilters();
+        }, 250);
+      });
+    }
+
+    if (clearSearchBtn) {
+      clearSearchBtn.addEventListener("click", () => {
+        searchInput.value = "";
+        searchQuery = "";
+        clearSearchBtn.style.display = "none";
         applyCurrentFilters();
-      }, 250);
-    });
+      });
+    }
 
-    clearSearchBtn.addEventListener("click", () => {
-      searchInput.value = "";
-      searchQuery = "";
-      clearSearchBtn.style.display = "none";
-      applyCurrentFilters();
-    });
-
-    // Status Segmented Controls
+    // Status Filter Segment
     statusFilterButtons.forEach(btn => {
       btn.addEventListener("click", () => {
         statusFilterButtons.forEach(b => b.classList.remove("active"));
@@ -387,7 +416,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Priority Segmented Controls
+    // Priority Filter Segment
     priorityFilterButtons.forEach(btn => {
       btn.addEventListener("click", () => {
         priorityFilterButtons.forEach(b => b.classList.remove("active"));
@@ -397,29 +426,23 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Reset Filters Button
-    resetFiltersBtn.addEventListener("click", () => {
-      searchQuery = "";
-      searchInput.value = "";
-      clearSearchBtn.style.display = "none";
+    // Reset Filters
+    if (resetFiltersBtn) {
+      resetFiltersBtn.addEventListener("click", () => {
+        searchQuery = "";
+        if (searchInput) searchInput.value = "";
+        if (clearSearchBtn) clearSearchBtn.style.display = "none";
 
-      activeStatusFilter = "";
-      statusFilterButtons.forEach(b => b.classList.toggle("active", b.getAttribute("data-status") === ""));
+        activeStatusFilter = "";
+        statusFilterButtons.forEach(b => b.classList.toggle("active", b.getAttribute("data-status") === ""));
 
-      activePriorityFilter = "";
-      priorityFilterButtons.forEach(b => b.classList.toggle("active", b.getAttribute("data-priority") === ""));
+        activePriorityFilter = "";
+        priorityFilterButtons.forEach(b => b.classList.toggle("active", b.getAttribute("data-priority") === ""));
 
-      applyCurrentFilters();
-    });
-
-    // Modal close controls
-    closeModalBtn.addEventListener("click", closeEditModal);
-    cancelModalBtn.addEventListener("click", closeEditModal);
-    editModal.addEventListener("click", (e) => {
-      if (e.target === editModal) closeEditModal();
-    });
+        applyCurrentFilters();
+      });
+    }
   }
 
-  // Run initialization
   init();
 });

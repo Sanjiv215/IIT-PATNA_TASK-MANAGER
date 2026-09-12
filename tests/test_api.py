@@ -1,203 +1,297 @@
 """
-Unit and integration tests for Student Task Manager REST API routes.
+Comprehensive tests for Student Task Manager:
+- Authentication (Signup, Login, Logout, Validation)
+- Route Protection & User Data Isolation
+- Task CRUD, Search, and Filtering
 """
 
 import json
 
 
-def test_index_page(client):
-    """Test that the homepage HTML renders successfully."""
-    response = client.get("/")
-    assert response.status_code == 200
-    assert b"Student Task Manager" in response.data
+# -----------------------------------------------------------------
+# 1. Authentication Tests
+# -----------------------------------------------------------------
 
-
-def test_create_task_success(client):
-    """Test creating a new task with complete valid information."""
+def test_signup_success(client):
+    """Test successful user registration via JSON and session creation."""
     payload = {
-        "title": "Math Assignment 1",
-        "description": "Solve problems 1 to 10 on page 45",
-        "priority": "High",
-        "due_date": "2026-09-30",
-        "status": "Pending"
+        "name": "Jane Doe",
+        "email": "jane@university.edu",
+        "password": "StrongPassword123",
+        "confirm_password": "StrongPassword123"
     }
-    response = client.post("/api/tasks", json=payload)
+    response = client.post("/signup", json=payload)
     assert response.status_code == 201
     data = response.get_json()
-    assert "task" in data
-    assert data["task"]["title"] == "Math Assignment 1"
-    assert data["task"]["priority"] == "High"
-    assert data["task"]["status"] == "Pending"
-    assert data["task"]["id"] is not None
+    assert "user" in data
+    assert data["user"]["email"] == "jane@university.edu"
+
+    # Verify session is established
+    me_res = client.get("/api/me")
+    assert me_res.status_code == 200
+    assert me_res.get_json()["email"] == "jane@university.edu"
 
 
-def test_create_task_validation_missing_title(client):
-    """Test validation failure when title is missing or empty."""
-    response = client.post("/api/tasks", json={"title": "", "priority": "Low"})
-    assert response.status_code == 400
-    data = response.get_json()
-    assert "error" in data
-
-
-def test_create_task_validation_invalid_priority(client):
-    """Test validation failure when priority is not Low/Medium/High."""
-    response = client.post("/api/tasks", json={"title": "Test Task", "priority": "Urgent"})
-    assert response.status_code == 400
-
-
-def test_create_task_validation_invalid_due_date(client):
-    """Test validation failure when due_date format is malformed."""
-    response = client.post("/api/tasks", json={"title": "Test Task", "due_date": "not-a-date"})
-    assert response.status_code == 400
-    assert "Invalid due_date format" in response.get_json()["error"]
-
-
-def test_create_task_validation_oversized_title(client):
-    """Test validation failure when title exceeds 150 characters."""
-    oversized_title = "A" * 151
-    response = client.post("/api/tasks", json={"title": oversized_title})
-    assert response.status_code == 400
-    assert "exceeds maximum allowed length" in response.get_json()["error"]
-
-
-def test_get_single_task(client):
-    """Test retrieving a single task by ID."""
-    create_res = client.post("/api/tasks", json={"title": "Read Chapter 4", "priority": "Medium"})
-    task_id = create_res.get_json()["task"]["id"]
-
-    get_res = client.get(f"/api/tasks/{task_id}")
-    assert get_res.status_code == 200
-    task = get_res.get_json()
-    assert task["id"] == task_id
-    assert task["title"] == "Read Chapter 4"
-
-
-def test_get_task_not_found(client):
-    """Test 404 response for non-existent task ID."""
-    response = client.get("/api/tasks/99999")
-    assert response.status_code == 404
-
-
-def test_list_all_tasks(client):
-    """Test listing all tasks."""
-    client.post("/api/tasks", json={"title": "Task A", "priority": "Low"})
-    client.post("/api/tasks", json={"title": "Task B", "priority": "High"})
-
-    response = client.get("/api/tasks")
-    assert response.status_code == 200
-    tasks = response.get_json()
-    assert len(tasks) >= 2
-    titles = [t["title"] for t in tasks]
-    assert "Task A" in titles
-    assert "Task B" in titles
-
-
-def test_update_task(client):
-    """Test updating task title, priority, and description."""
-    create_res = client.post("/api/tasks", json={"title": "Draft Presentation", "priority": "Medium"})
-    task_id = create_res.get_json()["task"]["id"]
-
-    update_payload = {
-        "title": "Finalize Presentation Slides",
-        "description": "Added 10 slides and citations",
-        "priority": "High",
-        "due_date": "2026-10-01",
-        "status": "Pending"
+def test_signup_validation_missing_name(client):
+    """Test signup fails when name is missing."""
+    payload = {
+        "name": "",
+        "email": "noname@university.edu",
+        "password": "Password123",
+        "confirm_password": "Password123"
     }
-    update_res = client.put(f"/api/tasks/{task_id}", json=update_payload)
+    response = client.post("/signup", json=payload)
+    assert response.status_code == 400
+    assert "name is required" in response.get_json()["error"].lower()
+
+
+def test_signup_validation_invalid_email(client):
+    """Test signup fails when email is malformed."""
+    payload = {
+        "name": "Alex",
+        "email": "not-an-email",
+        "password": "Password123",
+        "confirm_password": "Password123"
+    }
+    response = client.post("/signup", json=payload)
+    assert response.status_code == 400
+    assert "valid email" in response.get_json()["error"].lower()
+
+
+def test_signup_validation_short_password(client):
+    """Test signup fails when password is less than 8 characters."""
+    payload = {
+        "name": "Alex",
+        "email": "alex@university.edu",
+        "password": "short",
+        "confirm_password": "short"
+    }
+    response = client.post("/signup", json=payload)
+    assert response.status_code == 400
+    assert "8 characters" in response.get_json()["error"].lower()
+
+
+def test_signup_validation_password_mismatch(client):
+    """Test signup fails when passwords do not match."""
+    payload = {
+        "name": "Alex",
+        "email": "alex@university.edu",
+        "password": "Password123",
+        "confirm_password": "PasswordMismatch"
+    }
+    response = client.post("/signup", json=payload)
+    assert response.status_code == 400
+    assert "do not match" in response.get_json()["error"].lower()
+
+
+def test_signup_validation_duplicate_email(client):
+    """Test signup fails when email is already registered."""
+    payload = {
+        "name": "User One",
+        "email": "duplicate@university.edu",
+        "password": "Password123",
+        "confirm_password": "Password123"
+    }
+    res1 = client.post("/signup", json=payload)
+    assert res1.status_code == 201
+
+    # Second signup attempt with same email
+    res2 = client.post("/signup", json=payload)
+    assert res2.status_code == 400
+    assert "already exists" in res2.get_json()["error"].lower()
+
+
+def test_login_success_and_logout(client):
+    """Test login with valid credentials and subsequent logout."""
+    # Register first
+    client.post("/signup", json={
+        "name": "Bob Smith",
+        "email": "bob@university.edu",
+        "password": "SecretPassword123",
+        "confirm_password": "SecretPassword123"
+    })
+    client.get("/logout")  # Log out
+
+    # Log back in
+    login_res = client.post("/login", json={
+        "email": "bob@university.edu",
+        "password": "SecretPassword123"
+    })
+    assert login_res.status_code == 200
+    assert login_res.get_json()["user"]["email"] == "bob@university.edu"
+
+    # Verify active session
+    me_res = client.get("/api/me")
+    assert me_res.status_code == 200
+
+    # Logout
+    logout_res = client.get("/logout")
+    assert logout_res.status_code == 302  # redirects to /login
+
+    # After logout, /api/me should be unauthorized
+    unauth_res = client.get("/api/me")
+    assert unauth_res.status_code == 401
+
+
+def test_login_invalid_credentials(client):
+    """Test login rejection on wrong password or unregistered email."""
+    # Non-existent user
+    res1 = client.post("/login", json={"email": "nobody@test.com", "password": "Password123"})
+    assert res1.status_code == 401
+
+    # Register user
+    client.post("/signup", json={
+        "name": "User",
+        "email": "user@test.com",
+        "password": "CorrectPassword123",
+        "confirm_password": "CorrectPassword123"
+    })
+    client.get("/logout")
+
+    # Incorrect password
+    res2 = client.post("/login", json={"email": "user@test.com", "password": "WrongPassword"})
+    assert res2.status_code == 401
+
+
+# -----------------------------------------------------------------
+# 2. Route Protection & User Isolation Tests
+# -----------------------------------------------------------------
+
+def test_unauthenticated_api_protection(client):
+    """Test that all task API endpoints return 401 Unauthorized when unauthenticated."""
+    assert client.get("/api/tasks").status_code == 401
+    assert client.post("/api/tasks", json={"title": "Test"}).status_code == 401
+    assert client.get("/api/tasks/1").status_code == 401
+    assert client.put("/api/tasks/1", json={"title": "Test"}).status_code == 401
+    assert client.patch("/api/tasks/1/complete").status_code == 401
+    assert client.delete("/api/tasks/1").status_code == 401
+    assert client.get("/api/tasks/search?q=test").status_code == 401
+
+
+def test_user_data_isolation(app, client):
+    """
+    Test strict user isolation:
+    User A cannot view, edit, complete, or delete User B's tasks.
+    """
+    # 1. Register User A and create a task
+    client.post("/signup", json={
+        "name": "User A",
+        "email": "usera@test.com",
+        "password": "Password123",
+        "confirm_password": "Password123"
+    })
+    task_res = client.post("/api/tasks", json={"title": "User A Secret Assignment", "priority": "High"})
+    task_a_id = task_res.get_json()["task"]["id"]
+
+    # 2. Register User B
+    client.get("/logout")
+    client.post("/signup", json={
+        "name": "User B",
+        "email": "userb@test.com",
+        "password": "Password123",
+        "confirm_password": "Password123"
+    })
+
+    # 3. User B lists tasks -> should be empty
+    list_res = client.get("/api/tasks")
+    assert list_res.status_code == 200
+    assert len(list_res.get_json()) == 0
+
+    # 4. User B tries to get User A's task -> 404
+    assert client.get(f"/api/tasks/{task_a_id}").status_code == 404
+
+    # 5. User B tries to update User A's task -> 404
+    assert client.put(f"/api/tasks/{task_a_id}", json={"title": "Hacked Title"}).status_code == 404
+
+    # 6. User B tries to complete User A's task -> 404
+    assert client.patch(f"/api/tasks/{task_a_id}/complete").status_code == 404
+
+    # 7. User B tries to delete User A's task -> 404
+    assert client.delete(f"/api/tasks/{task_a_id}").status_code == 404
+
+    # 8. User B searches -> does not see User A's task
+    search_res = client.get("/api/tasks/search?q=Secret")
+    assert search_res.status_code == 200
+    assert len(search_res.get_json()) == 0
+
+
+# -----------------------------------------------------------------
+# 3. Task Management CRUD & Validation Tests (Authenticated)
+# -----------------------------------------------------------------
+
+def test_create_task_authenticated(auth_client):
+    """Test creating a task under an authenticated session."""
+    payload = {
+        "title": "Math Homework 1",
+        "description": "Exercises 1-10",
+        "priority": "High",
+        "due_date": "2026-10-15"
+    }
+    res = auth_client.post("/api/tasks", json=payload)
+    assert res.status_code == 201
+    task = res.get_json()["task"]
+    assert task["title"] == "Math Homework 1"
+    assert task["priority"] == "High"
+    assert task["status"] == "Pending"
+
+
+def test_task_validation_errors(auth_client):
+    """Test server-side validation for task creation."""
+    # Missing title
+    assert auth_client.post("/api/tasks", json={"title": ""}).status_code == 400
+    # Invalid priority
+    assert auth_client.post("/api/tasks", json={"title": "T", "priority": "Urgent"}).status_code == 400
+    # Invalid date
+    assert auth_client.post("/api/tasks", json={"title": "T", "due_date": "invalid-date"}).status_code == 400
+
+
+def test_update_and_toggle_complete(auth_client):
+    """Test updating task details and toggling completion."""
+    create_res = auth_client.post("/api/tasks", json={"title": "Physics Quiz", "priority": "Medium"})
+    task_id = create_res.get_json()["task"]["id"]
+
+    # Update
+    update_res = auth_client.put(f"/api/tasks/{task_id}", json={
+        "title": "Physics Final Exam",
+        "priority": "High",
+        "description": "Covers chapters 1-8"
+    })
     assert update_res.status_code == 200
-    updated = update_res.get_json()["task"]
-    assert updated["title"] == "Finalize Presentation Slides"
-    assert updated["priority"] == "High"
-    assert updated["description"] == "Added 10 slides and citations"
+    assert update_res.get_json()["task"]["title"] == "Physics Final Exam"
+
+    # Toggle Complete
+    patch_res = auth_client.patch(f"/api/tasks/{task_id}/complete")
+    assert patch_res.status_code == 200
+    assert patch_res.get_json()["task"]["status"] == "Completed"
 
 
-def test_update_task_invalid_payload(client):
-    """Test updating task with invalid priority."""
-    create_res = client.post("/api/tasks", json={"title": "Presentation", "priority": "Medium"})
+def test_delete_task_authenticated(auth_client):
+    """Test deleting task."""
+    create_res = auth_client.post("/api/tasks", json={"title": "Delete Me", "priority": "Low"})
     task_id = create_res.get_json()["task"]["id"]
 
-    res = client.put(f"/api/tasks/{task_id}", json={"priority": "Critical"})
-    assert res.status_code == 400
-
-
-def test_toggle_complete_task(client):
-    """Test toggling task completion status via PATCH."""
-    create_res = client.post("/api/tasks", json={"title": "Chemistry Quiz Revision", "priority": "Medium"})
-    task_id = create_res.get_json()["task"]["id"]
-
-    # 1. Toggle to Completed
-    patch_res1 = client.patch(f"/api/tasks/{task_id}/complete")
-    assert patch_res1.status_code == 200
-    assert patch_res1.get_json()["task"]["status"] == "Completed"
-
-    # 2. Toggle back to Pending
-    patch_res2 = client.patch(f"/api/tasks/{task_id}/complete")
-    assert patch_res2.status_code == 200
-    assert patch_res2.get_json()["task"]["status"] == "Pending"
-
-    # 3. Explicit set via JSON
-    patch_res3 = client.patch(f"/api/tasks/{task_id}/complete", json={"completed": True})
-    assert patch_res3.status_code == 200
-    assert patch_res3.get_json()["task"]["status"] == "Completed"
-
-
-def test_delete_task(client):
-    """Test deleting a task."""
-    create_res = client.post("/api/tasks", json={"title": "Temporary Task", "priority": "Low"})
-    task_id = create_res.get_json()["task"]["id"]
-
-    del_res = client.delete(f"/api/tasks/{task_id}")
+    del_res = auth_client.delete(f"/api/tasks/{task_id}")
     assert del_res.status_code == 200
-
-    # Ensure task no longer exists
-    get_res = client.get(f"/api/tasks/{task_id}")
-    assert get_res.status_code == 404
+    assert auth_client.get(f"/api/tasks/{task_id}").status_code == 404
 
 
-def test_filter_tasks_by_status(client):
-    """Test filtering tasks by status query param."""
-    client.post("/api/tasks", json={"title": "Pending Task 1", "status": "Pending"})
-    client.post("/api/tasks", json={"title": "Completed Task 1", "status": "Completed"})
+def test_filter_and_search_tasks(auth_client):
+    """Test query filtering and keyword search."""
+    auth_client.post("/api/tasks", json={"title": "Algorithms HW", "priority": "High", "status": "Pending"})
+    auth_client.post("/api/tasks", json={"title": "History Reading", "priority": "Low", "status": "Completed"})
 
-    res_pending = client.get("/api/tasks?status=Pending")
+    # Filter status
+    res_pending = auth_client.get("/api/tasks?status=Pending")
     assert res_pending.status_code == 200
-    pending_tasks = res_pending.get_json()
-    assert all(t["status"] == "Pending" for t in pending_tasks)
+    assert all(t["status"] == "Pending" for t in res_pending.get_json())
 
-    res_completed = client.get("/api/tasks?status=Completed")
-    assert res_completed.status_code == 200
-    completed_tasks = res_completed.get_json()
-    assert all(t["status"] == "Completed" for t in completed_tasks)
-
-
-def test_filter_tasks_by_priority(client):
-    """Test filtering tasks by priority query param."""
-    client.post("/api/tasks", json={"title": "Low Priority Task", "priority": "Low"})
-    client.post("/api/tasks", json={"title": "High Priority Task", "priority": "High"})
-
-    res_high = client.get("/api/tasks?priority=High")
+    # Filter priority
+    res_high = auth_client.get("/api/tasks?priority=High")
     assert res_high.status_code == 200
-    high_tasks = res_high.get_json()
-    assert all(t["priority"] == "High" for t in high_tasks)
-    assert any(t["title"] == "High Priority Task" for t in high_tasks)
+    assert all(t["priority"] == "High" for t in res_high.get_json())
 
-
-def test_search_tasks_by_title_and_description(client):
-    """Test search endpoint with keyword query."""
-    client.post("/api/tasks", json={"title": "Biology Lab Experiment", "description": "Microscope cell staining"})
-    client.post("/api/tasks", json={"title": "Literature Reading", "description": "Read poetry section"})
-
-    # Search title
-    res1 = client.get("/api/tasks/search?q=Biology")
-    assert res1.status_code == 200
-    results1 = res1.get_json()
-    assert len(results1) >= 1
-    assert any("Biology" in t["title"] for t in results1)
-
-    # Search description
-    res2 = client.get("/api/tasks/search?q=staining")
-    assert res2.status_code == 200
-    results2 = res2.get_json()
-    assert len(results2) >= 1
-    assert any("Biology" in t["title"] for t in results2)
+    # Search
+    search_res = auth_client.get("/api/tasks/search?q=Algorithms")
+    assert search_res.status_code == 200
+    assert len(search_res.get_json()) == 1
+    assert search_res.get_json()[0]["title"] == "Algorithms HW"

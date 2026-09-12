@@ -3,206 +3,203 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Student Task Manager</title>
+  <title>Dashboard - Student Task Manager</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
+<body class="dashboard-body">
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <div class="app-container">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-content">
-        <div class="header-titles">
-          <h1>🎓 Student Task Manager</h1>
-          <p class="subtitle">Organize, prioritize, and track your academic deadlines</p>
+  <!-- Modern Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <span class="nav-logo">🎓</span>
+        <div class="nav-title-group">
+          <span class="nav-app-name">Student Task Manager</span>
+          <span class="nav-workspace-tag">Academic Workspace</span>
         </div>
-        <div class="header-date" id="current-date-display"></div>
       </div>
-    </header>
 
-    <!-- Stats Overview Section -->
-    <section class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon total-icon">📋</div>
-        <div class="stat-info">
-          <span class="stat-label">Total Tasks</span>
+      <div class="nav-actions">
+        <button type="button" class="btn btn-primary btn-nav-action" id="open-new-task-modal-btn">
+          <span>+ New Task</span>
+        </button>
+
+        <div class="user-menu-pill">
+          <div class="user-avatar">{{ user_name[0] | upper }}</div>
+          <div class="user-details">
+            <span class="user-name">{{ user_name }}</span>
+            <span class="user-email">{{ user_email }}</span>
+          </div>
+          <a href="/logout" class="btn-logout" title="Log Out">
+            <span>🚪 Logout</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Container -->
+  <div class="app-layout">
+    <!-- Header Sub-Bar with Date & Welcome -->
+    <div class="dashboard-banner">
+      <div class="banner-text">
+        <h2>Welcome back, {{ user_name }} 👋</h2>
+        <p class="banner-subtext">Here is what's on your academic agenda today.</p>
+      </div>
+      <div class="current-date-badge" id="current-date-display"></div>
+    </div>
+
+    <!-- Summary Statistics Metric Strip -->
+    <section class="stats-strip">
+      <div class="stat-card stat-total">
+        <div class="stat-icon-wrapper">📋</div>
+        <div class="stat-content">
+          <span class="stat-label">Total Coursework</span>
           <span class="stat-value" id="stat-total">0</span>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon pending-icon">⏳</div>
-        <div class="stat-info">
+
+      <div class="stat-card stat-pending">
+        <div class="stat-icon-wrapper">⏳</div>
+        <div class="stat-content">
           <span class="stat-label">Pending</span>
           <span class="stat-value" id="stat-pending">0</span>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon completed-icon">✅</div>
-        <div class="stat-info">
+
+      <div class="stat-card stat-completed">
+        <div class="stat-icon-wrapper">✅</div>
+        <div class="stat-content">
           <span class="stat-label">Completed</span>
           <span class="stat-value" id="stat-completed">0</span>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon high-icon">🔥</div>
-        <div class="stat-info">
-          <span class="stat-label">High Priority</span>
-          <span class="stat-value" id="stat-high">0</span>
+
+      <div class="stat-card stat-overdue">
+        <div class="stat-icon-wrapper">🔥</div>
+        <div class="stat-content">
+          <span class="stat-label">Overdue / Urgent</span>
+          <span class="stat-value" id="stat-overdue">0</span>
         </div>
       </div>
     </section>
 
-    <!-- Main Content Layout (Form on Left / Top, Tasks on Right / Bottom) -->
-    <div class="main-layout">
-      <!-- Add Task Section -->
-      <aside class="sidebar">
-        <div class="card form-card">
-          <h2>➕ Add New Task</h2>
-          <form id="add-task-form">
-            <div class="form-group">
-              <label for="task-title">Task Title <span class="required">*</span></label>
-              <input type="text" id="task-title" name="title" placeholder="e.g. CS201 Assignment 2" required maxlength="120">
-            </div>
+    <!-- Toolbar: Search & Segmented Filtering -->
+    <section class="toolbar-section card">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search tasks by title, course, or keyword..." autocomplete="off">
+        <button type="button" id="clear-search-btn" class="btn-clear-search" title="Clear search" style="display:none;">✕</button>
+      </div>
 
-            <div class="form-group">
-              <label for="task-desc">Description</label>
-              <textarea id="task-desc" name="description" rows="3" placeholder="Additional details, resources, or notes..."></textarea>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group flex-1">
-                <label for="task-priority">Priority</label>
-                <select id="task-priority" name="priority">
-                  <option value="Low">Low</option>
-                  <option value="Medium" selected>Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
-
-              <div class="form-group flex-1">
-                <label for="task-due-date">Due Date</label>
-                <input type="date" id="task-due-date" name="due_date">
-              </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block">
-              <span>Add Task</span>
-            </button>
-          </form>
-        </div>
-      </aside>
-
-      <!-- Task List & Filter Section -->
-      <main class="content-area">
-        <!-- Filter & Search Toolbar -->
-        <div class="card toolbar-card">
-          <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="search-input" placeholder="Search tasks by title or keyword..." autocomplete="off">
-            <button id="clear-search-btn" class="btn-icon" title="Clear search" style="display:none;">✕</button>
-          </div>
-
-          <div class="filters-row">
-            <div class="filter-group">
-              <span class="filter-label">Status:</span>
-              <div class="segmented-control" id="status-filters">
-                <button type="button" class="segment-btn active" data-status="">All</button>
-                <button type="button" class="segment-btn" data-status="Pending">Pending</button>
-                <button type="button" class="segment-btn" data-status="Completed">Completed</button>
-              </div>
-            </div>
-
-            <div class="filter-group">
-              <span class="filter-label">Priority:</span>
-              <div class="segmented-control" id="priority-filters">
-                <button type="button" class="segment-btn active" data-priority="">All</button>
-                <button type="button" class="segment-btn" data-priority="High">High</button>
-                <button type="button" class="segment-btn" data-priority="Medium">Med</button>
-                <button type="button" class="segment-btn" data-priority="Low">Low</button>
-              </div>
-            </div>
-
-            <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-sm" title="Reset all filters">
-              Reset Filters
-            </button>
+      <div class="filter-controls-group">
+        <div class="filter-segment-wrapper">
+          <span class="filter-caption">Status:</span>
+          <div class="segmented-control" id="status-filters">
+            <button type="button" class="segment-btn active" data-status="">All</button>
+            <button type="button" class="segment-btn" data-status="Pending">Pending</button>
+            <button type="button" class="segment-btn" data-status="Completed">Completed</button>
           </div>
         </div>
 
-        <!-- Task List Container -->
-        <div class="task-list-header">
-          <h2 id="task-list-heading">Tasks</h2>
-          <span class="task-count-badge" id="visible-count">0 tasks</span>
+        <div class="filter-segment-wrapper">
+          <span class="filter-caption">Priority:</span>
+          <div class="segmented-control" id="priority-filters">
+            <button type="button" class="segment-btn active" data-priority="">All</button>
+            <button type="button" class="segment-btn" data-priority="High">High</button>
+            <button type="button" class="segment-btn" data-priority="Medium">Med</button>
+            <button type="button" class="segment-btn" data-priority="Low">Low</button>
+          </div>
         </div>
 
-        <div id="tasks-container" class="tasks-grid">
-          <!-- Dynamically populated tasks will appear here -->
-        </div>
+        <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-sm" title="Reset all search and filter conditions">
+          Reset Filters
+        </button>
+      </div>
+    </section>
 
-        <!-- Empty State Message -->
-        <div id="empty-state" class="empty-state" style="display:none;">
-          <div class="empty-icon">📝</div>
-          <h3>No tasks found</h3>
-          <p id="empty-state-text">You have no tasks matching your filters. Create a new task or adjust your search.</p>
+    <!-- Task List Feed -->
+    <section class="task-feed-section">
+      <div class="feed-header">
+        <div class="feed-title-wrap">
+          <h3>Your Tasks</h3>
+          <span class="task-counter-pill" id="visible-count">0 tasks</span>
         </div>
-      </main>
-    </div>
+        <div class="feed-quick-action">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-add">+ Add Task</button>
+        </div>
+      </div>
+
+      <!-- Dynamic Tasks Container -->
+      <div id="tasks-container" class="tasks-grid">
+        <!-- Rendered via JavaScript -->
+      </div>
+
+      <!-- Empty State Graphic -->
+      <div id="empty-state" class="empty-state-card" style="display:none;">
+        <div class="empty-state-illustration">📚</div>
+        <h4 id="empty-state-title">No tasks found</h4>
+        <p id="empty-state-desc">You are all caught up! Click "+ New Task" to add your next assignment or exam deadline.</p>
+        <button type="button" class="btn btn-primary" id="empty-state-add-btn">+ Create Your First Task</button>
+      </div>
+    </section>
   </div>
 
-  <!-- Edit Task Modal -->
-  <div id="edit-modal" class="modal-backdrop" style="display:none;">
+  <!-- Unified Task Modal (Create & Edit) -->
+  <div id="task-modal" class="modal-backdrop" style="display:none;">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>✏️ Edit Task</h3>
-        <button type="button" class="modal-close" id="close-modal-btn">&times;</button>
+        <h3 id="modal-title">➕ Add New Task</h3>
+        <button type="button" class="modal-close-btn" id="modal-close-btn" title="Close">&times;</button>
       </div>
-      <form id="edit-task-form">
-        <input type="hidden" id="edit-task-id">
+
+      <form id="task-form">
+        <input type="hidden" id="form-task-id">
         
         <div class="form-group">
-          <label for="edit-task-title">Task Title <span class="required">*</span></label>
-          <input type="text" id="edit-task-title" required maxlength="120">
+          <label for="form-task-title">Task Title <span class="required">*</span></label>
+          <input type="text" id="form-task-title" placeholder="e.g. CS201 Assignment 2" required maxlength="150" autofocus>
         </div>
 
         <div class="form-group">
-          <label for="edit-task-desc">Description</label>
-          <textarea id="edit-task-desc" rows="3"></textarea>
+          <label for="form-task-desc">Description & Notes</label>
+          <textarea id="form-task-desc" rows="3" placeholder="Add submission guidelines, textbook chapter, or project links..."></textarea>
         </div>
 
         <div class="form-row">
           <div class="form-group flex-1">
-            <label for="edit-task-priority">Priority</label>
-            <select id="edit-task-priority">
+            <label for="form-task-priority">Priority</label>
+            <select id="form-task-priority">
               <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
+              <option value="Medium" selected>Medium</option>
               <option value="High">High</option>
             </select>
           </div>
 
           <div class="form-group flex-1">
-            <label for="edit-task-due-date">Due Date</label>
-            <input type="date" id="edit-task-due-date">
+            <label for="form-task-due-date">Due Date</label>
+            <input type="date" id="form-task-due-date">
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="edit-task-status">Status</label>
-          <select id="edit-task-status">
+        <div class="form-group" id="form-status-group" style="display:none;">
+          <label for="form-task-status">Status</label>
+          <select id="form-task-status">
             <option value="Pending">Pending</option>
             <option value="Completed">Completed</option>
           </select>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" id="cancel-modal-btn">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="modal-submit-btn">Save Task</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- JavaScript application logic -->
   <script src="/static/js/app.js"></script>
 </body>
 </html>
