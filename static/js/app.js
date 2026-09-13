@@ -302,6 +302,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const dueInfo = formatDueDate(task.due_date);
       const isCompleted = task.status === "Completed";
 
+      // Course code extraction helper (e.g., CS201, CS-101, [MATH302], EE200)
+      const courseMatch = task.title.match(/^(\[?([A-Z]{2,5}\s?-?\d{2,4})\]?:?\s*)/i);
+      let displayTitle = task.title;
+      let courseTagHtml = "";
+      if (courseMatch) {
+        const fullMatchedPrefix = courseMatch[1];
+        const rawCode = courseMatch[2].toUpperCase().replace(/\s+/, "");
+        courseTagHtml = `<span class="course-tag">${escapeHtml(rawCode)}</span>`;
+        displayTitle = task.title.slice(fullMatchedPrefix.length) || task.title;
+      }
+
       card.innerHTML = `
         <div class="task-card-header">
           <label class="task-checkbox-label">
@@ -309,7 +320,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </label>
           <div class="task-card-main-col">
             <div class="task-card-title-row">
-              <h4 class="task-title">${escapeHtml(task.title)}</h4>
+              <div class="task-title-group">
+                ${courseTagHtml}
+                <h4 class="task-title">${escapeHtml(displayTitle)}</h4>
+              </div>
               <div class="task-priority-indicator">
                 <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
                 <span>${escapeHtml(task.priority)}</span>
@@ -856,6 +870,36 @@ document.addEventListener("DOMContentLoaded", () => {
         applyCurrentFilters();
       });
     }
+
+    // Global Keyboard Shortcuts (⌘K, /, Escape, N)
+    document.addEventListener("keydown", (e) => {
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+      const isInputActive = activeTag === "input" || activeTag === "textarea" || activeTag === "select";
+
+      // ⌘K, Ctrl+K, or '/' to focus search
+      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !isInputActive)) {
+        e.preventDefault();
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }
+
+      // Escape to blur search or close modal
+      if (e.key === "Escape") {
+        if (taskModal && taskModal.style.display !== "none") {
+          closeTaskModal();
+        } else if (document.activeElement === searchInput) {
+          searchInput.blur();
+        }
+      }
+
+      // 'n' or 'N' to open New Task modal (when not typing in an input)
+      if ((e.key === "n" || e.key === "N") && !isInputActive && !(e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        openTaskModal(null);
+      }
+    });
   }
 
   init();

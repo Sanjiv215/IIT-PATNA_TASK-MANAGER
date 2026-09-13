@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - Student Task Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="dashboard-body">
@@ -16,6 +19,7 @@
       <div class="nav-brand">
         <div class="brand-badge">T</div>
         <span class="brand-wordmark">TASK</span>
+        <span class="brand-tag">STUDENT OS</span>
       </div>
 
       <!-- Center View Switcher Tabs -->
@@ -66,10 +70,10 @@
     <!-- Header Row matching reference design -->
     <div class="dashboard-header-row">
       <div class="dashboard-title-group">
-        <div class="dashboard-date-label" id="current-date-display">12 Sep 2026</div>
+        <div class="dashboard-date-label" id="current-date-display">13 Sep 2026</div>
         <h1 class="dashboard-main-title" id="dashboard-view-title">Daily Tasks</h1>
       </div>
-      <button type="button" class="btn-pill-primary" id="open-new-task-modal-btn">
+      <button type="button" class="btn-pill-primary mint-glow-hover" id="open-new-task-modal-btn">
         <span>+ Add Task</span>
       </button>
     </div>
@@ -87,7 +91,8 @@
       <section class="toolbar-section card">
         <div class="search-box">
           <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" placeholder="Search tasks by title, course, or keyword..." autocomplete="off">
+          <input type="text" id="search-input" placeholder="Search tasks by title, course, or keyword... (Press / to search)" autocomplete="off">
+          <span class="search-kbd-hint">/</span>
           <button type="button" id="clear-search-btn" class="btn-clear-search" title="Clear search" style="display:none;">✕</button>
         </div>
 
