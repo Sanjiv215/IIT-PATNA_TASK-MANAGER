@@ -84,56 +84,108 @@
     </div>
 
     <!-- ========================================================= -->
-    <!-- VIEW 1: TASKS FEED (Default) -->
+    <!-- VIEW 1: TASKS FEED (Unified 2-Column Dashboard Layout) -->
     <!-- ========================================================= -->
     <div id="view-tasks" class="view-panel active">
-      <!-- Toolbar: Search & Segmented Filtering -->
-      <section class="toolbar-section card">
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" placeholder="Search tasks by title, course, or keyword... (Press / to search)" autocomplete="off">
-          <span class="search-kbd-hint">/</span>
-          <button type="button" id="clear-search-btn" class="btn-clear-search" title="Clear search" style="display:none;">✕</button>
+      <div class="dashboard-grid-layout">
+        <!-- Left Main Column: Tasks Feed -->
+        <div class="dashboard-main-column">
+          <!-- Toolbar: Search & Segmented Filtering -->
+          <section class="toolbar-section card">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="search-input" placeholder="Search tasks by title, course, or keyword... (Press / to search)" autocomplete="off">
+              <span class="search-kbd-hint">/</span>
+              <button type="button" id="clear-search-btn" class="btn-clear-search" title="Clear search" style="display:none;">✕</button>
+            </div>
+
+            <div class="filter-controls-group">
+              <div class="filter-segment-wrapper">
+                <span class="filter-caption">Status:</span>
+                <div class="segmented-control" id="status-filters">
+                  <button type="button" class="segment-btn active" data-status="">All</button>
+                  <button type="button" class="segment-btn" data-status="Pending">Pending</button>
+                  <button type="button" class="segment-btn" data-status="Completed">Completed</button>
+                </div>
+              </div>
+
+              <div class="filter-segment-wrapper">
+                <span class="filter-caption">Priority:</span>
+                <div class="segmented-control" id="priority-filters">
+                  <button type="button" class="segment-btn active" data-priority="">All</button>
+                  <button type="button" class="segment-btn" data-priority="High">High</button>
+                  <button type="button" class="segment-btn" data-priority="Medium">Med</button>
+                  <button type="button" class="segment-btn" data-priority="Low">Low</button>
+                </div>
+              </div>
+
+              <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-sm" title="Reset all search and filter conditions">
+                Reset
+              </button>
+            </div>
+          </section>
+
+          <!-- Task List Feed -->
+          <section class="task-feed-section">
+            <!-- Dynamic Tasks Container -->
+            <div id="tasks-container" class="tasks-grid">
+              <!-- Rendered via JavaScript -->
+            </div>
+
+            <!-- Empty State Graphic -->
+            <div id="empty-state" class="empty-state-box" style="display:none;">
+              <p class="empty-state-msg">No tasks added for today.</p>
+            </div>
+          </section>
         </div>
 
-        <div class="filter-controls-group">
-          <div class="filter-segment-wrapper">
-            <span class="filter-caption">Status:</span>
-            <div class="segmented-control" id="status-filters">
-              <button type="button" class="segment-btn active" data-status="">All</button>
-              <button type="button" class="segment-btn" data-status="Pending">Pending</button>
-              <button type="button" class="segment-btn" data-status="Completed">Completed</button>
+        <!-- Right Side Column: Live Learning Analytics & Progress Rail -->
+        <aside class="dashboard-side-column">
+          <!-- Streak & Motivation Card -->
+          <div class="card side-analytics-card motivation-mini-card">
+            <div class="side-card-header">
+              <span class="side-card-badge">🔥 STREAK</span>
+              <span class="side-streak-number" id="side-streak-count">0 Days</span>
+            </div>
+            <p class="side-motivation-text" id="side-motivation-text">Ready to study? Add your deadlines and start checking off tasks!</p>
+          </div>
+
+          <!-- Weekly Completion Gauge Card -->
+          <div class="card side-analytics-card">
+            <div class="side-card-header">
+              <span class="side-card-title">Weekly Progress</span>
+              <span class="side-progress-value" id="side-week-rate">0%</span>
+            </div>
+            <div class="progress-gauge-bar">
+              <div class="progress-gauge-fill" id="side-week-fill" style="width: 0%;"></div>
+            </div>
+            <div class="side-card-sub" id="side-tasks-ratio">0 of 0 tasks completed</div>
+          </div>
+
+          <!-- 7-Day Completion Velocity Chart -->
+          <div class="card side-analytics-card">
+            <div class="side-card-header">
+              <span class="side-card-title">7-Day Velocity</span>
+              <span class="side-card-sub-label">Activity</span>
+            </div>
+            <div class="side-activity-chart-container" id="side-activity-chart-container">
+              <!-- Rendered via JS -->
             </div>
           </div>
 
-          <div class="filter-segment-wrapper">
-            <span class="filter-caption">Priority:</span>
-            <div class="segmented-control" id="priority-filters">
-              <button type="button" class="segment-btn active" data-priority="">All</button>
-              <button type="button" class="segment-btn" data-priority="High">High</button>
-              <button type="button" class="segment-btn" data-priority="Medium">Med</button>
-              <button type="button" class="segment-btn" data-priority="Low">Low</button>
+          <!-- Urgency & Priority Breakdown Card -->
+          <div class="card side-analytics-card">
+            <div class="side-card-header">
+              <span class="side-card-title">Priority Queue</span>
+            </div>
+            <div class="priority-breakdown-row">
+              <span class="badge badge-high" id="side-breakdown-high">0 High</span>
+              <span class="badge badge-medium" id="side-breakdown-med">0 Med</span>
+              <span class="badge badge-low" id="side-breakdown-low">0 Low</span>
             </div>
           </div>
-
-          <button type="button" id="reset-filters-btn" class="btn btn-secondary btn-sm" title="Reset all search and filter conditions">
-            Reset Filters
-          </button>
-        </div>
-      </section>
-
-      <!-- Task List Feed -->
-      <section class="task-feed-section">
-        <!-- Dynamic Tasks Container -->
-        <div id="tasks-container" class="tasks-grid">
-          <!-- Rendered via JavaScript -->
-        </div>
-
-        <!-- Empty State Graphic (Matching reference design) -->
-        <div id="empty-state" class="empty-state-box" style="display:none;">
-          <p class="empty-state-msg">No tasks added for today.</p>
-        </div>
-      </section>
+        </aside>
+      </div>
     </div>
 
     <!-- ========================================================= -->

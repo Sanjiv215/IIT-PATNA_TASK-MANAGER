@@ -88,6 +88,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const breakdownLow = document.getElementById("breakdown-low");
   const activityChartContainer = document.getElementById("activity-chart-container");
 
+  // DOM: Side Rail Analytics (2-Column Dashboard)
+  const sideStreakCount = document.getElementById("side-streak-count");
+  const sideMotivationText = document.getElementById("side-motivation-text");
+  const sideWeekRate = document.getElementById("side-week-rate");
+  const sideWeekFill = document.getElementById("side-week-fill");
+  const sideTasksRatio = document.getElementById("side-tasks-ratio");
+  const sideActivityChartContainer = document.getElementById("side-activity-chart-container");
+  const sideBreakdownHigh = document.getElementById("side-breakdown-high");
+  const sideBreakdownMed = document.getElementById("side-breakdown-med");
+  const sideBreakdownLow = document.getElementById("side-breakdown-low");
+
   // DOM: Modal
   const taskModal = document.getElementById("task-modal");
   const taskForm = document.getElementById("task-form");
@@ -110,6 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function init() {
     renderCurrentDate();
     fetchTasksAndStats();
+    fetchProgressAnalytics();
     fetchReminders();
     attachEventListeners();
   }
@@ -494,48 +506,58 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderProgressView(data) {
-    // Motivational Message & Streak
-    progressMotivationTitle.textContent = data.motivational_message;
-    progressStreakCount.textContent = data.current_streak_days;
+    // 1. Full Progress View
+    if (progressMotivationTitle) progressMotivationTitle.textContent = data.motivational_message;
+    if (progressStreakCount) progressStreakCount.textContent = data.current_streak_days;
+    if (progressWeekRate) progressWeekRate.textContent = `${data.completion_rate_week}%`;
+    if (progressWeekFill) progressWeekFill.style.width = `${Math.min(100, Math.max(0, data.completion_rate_week))}%`;
+    if (progressOverallRate) progressOverallRate.textContent = `${data.completion_rate_overall}%`;
+    if (progressOverallFill) progressOverallFill.style.width = `${Math.min(100, Math.max(0, data.completion_rate_overall))}%`;
+    if (progressTasksRatio) progressTasksRatio.textContent = `${data.completed_tasks} of ${data.total_tasks} tasks completed`;
+    if (breakdownHigh) breakdownHigh.textContent = `${data.priority_breakdown.High || 0} High`;
+    if (breakdownMed) breakdownMed.textContent = `${data.priority_breakdown.Medium || 0} Med`;
+    if (breakdownLow) breakdownLow.textContent = `${data.priority_breakdown.Low || 0} Low`;
 
-    // Progress Bars
-    progressWeekRate.textContent = `${data.completion_rate_week}%`;
-    progressWeekFill.style.width = `${Math.min(100, Math.max(0, data.completion_rate_week))}%`;
+    // 2. Side Rail Analytics (2-Column Dashboard)
+    if (sideStreakCount) sideStreakCount.textContent = `${data.current_streak_days} ${data.current_streak_days === 1 ? "Day" : "Days"}`;
+    if (sideMotivationText) sideMotivationText.textContent = data.motivational_message;
+    if (sideWeekRate) sideWeekRate.textContent = `${data.completion_rate_week}%`;
+    if (sideWeekFill) sideWeekFill.style.width = `${Math.min(100, Math.max(0, data.completion_rate_week))}%`;
+    if (sideTasksRatio) sideTasksRatio.textContent = `${data.completed_tasks} of ${data.total_tasks} tasks completed`;
+    if (sideBreakdownHigh) sideBreakdownHigh.textContent = `${data.priority_breakdown.High || 0} High`;
+    if (sideBreakdownMed) sideBreakdownMed.textContent = `${data.priority_breakdown.Medium || 0} Med`;
+    if (sideBreakdownLow) sideBreakdownLow.textContent = `${data.priority_breakdown.Low || 0} Low`;
 
-    progressOverallRate.textContent = `${data.completion_rate_overall}%`;
-    progressOverallFill.style.width = `${Math.min(100, Math.max(0, data.completion_rate_overall))}%`;
-    progressTasksRatio.textContent = `${data.completed_tasks} of ${data.total_tasks} tasks completed`;
-
-    // Priority Breakdown
-    breakdownHigh.textContent = `${data.priority_breakdown.High || 0} High`;
-    breakdownMed.textContent = `${data.priority_breakdown.Medium || 0} Med`;
-    breakdownLow.textContent = `${data.priority_breakdown.Low || 0} Low`;
-
-    // 7-Day Velocity Chart
+    // 3. Velocity Charts (Full view and Side rail)
     renderActivityChart(data.daily_completion_history || []);
   }
 
   function renderActivityChart(history) {
-    activityChartContainer.innerHTML = "";
-    if (history.length === 0) return;
+    const containers = [activityChartContainer, sideActivityChartContainer].filter(Boolean);
+    containers.forEach(container => {
+      container.innerHTML = "";
+    });
 
+    if (history.length === 0) return;
     const maxCount = Math.max(1, ...history.map(h => h.count));
 
-    history.forEach(day => {
-      const col = document.createElement("div");
-      col.className = "chart-col";
+    containers.forEach(container => {
+      history.forEach(day => {
+        const col = document.createElement("div");
+        col.className = "chart-col";
 
-      const heightPercent = Math.round((day.count / maxCount) * 100);
-      const displayHeight = day.count > 0 ? Math.max(15, heightPercent) : 4;
+        const heightPercent = Math.round((day.count / maxCount) * 100);
+        const displayHeight = day.count > 0 ? Math.max(18, heightPercent) : 5;
 
-      col.innerHTML = `
-        <span class="chart-col-count">${day.count}</span>
-        <div class="chart-bar-wrap">
-          <div class="chart-bar-fill" style="height: ${displayHeight}%;"></div>
-        </div>
-        <span class="chart-col-label">${escapeHtml(day.day_name)}</span>
-      `;
-      activityChartContainer.appendChild(col);
+        col.innerHTML = `
+          <span class="chart-col-count">${day.count}</span>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar-fill" style="height: ${displayHeight}%;"></div>
+          </div>
+          <span class="chart-col-label">${escapeHtml(day.day_name)}</span>
+        `;
+        container.appendChild(col);
+      });
     });
   }
 
