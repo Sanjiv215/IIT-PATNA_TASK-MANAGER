@@ -579,7 +579,7 @@ def create_app(test_config=None):
         if existing is None:
             return jsonify({"error": f"Task with ID {task_id} not found."}), 404
 
-        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+        cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
         db.commit()
 
         return jsonify({"message": f"Task {task_id} deleted successfully."}), 200
