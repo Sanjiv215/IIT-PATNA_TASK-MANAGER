@@ -1,6 +1,7 @@
 /**
  * Student Task Manager - Frontend JavaScript
- * Handles Views (Tasks, Calendar, Progress), Reminders, Search, Filters, and Modal CRUD.
+ * Handles Views (Tasks, Calendar, Progress), Theme Toggling, Loading Skeletons,
+ * Micro-interactions, Reminders, Search, Filters, and Modal CRUD.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -31,18 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const errorBanner = document.getElementById("error-banner");
   const errorBannerText = document.getElementById("error-banner-text");
 
-  function showErrorBanner(msg = "Unable to load tasks") {
-    if (errorBanner) {
-      if (errorBannerText) errorBannerText.textContent = msg;
-      errorBanner.style.display = "flex";
-    }
-  }
-
-  function hideErrorBanner() {
-    if (errorBanner) {
-      errorBanner.style.display = "none";
-    }
-  }
+  // DOM: Theme Toggle
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
+  const themeToggleIcon = document.getElementById("theme-toggle-icon");
 
   // DOM: Reminders
   const bellToggleBtn = document.getElementById("bell-toggle-btn");
@@ -54,10 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // DOM: Tasks Feed & Stats
   const tasksContainer = document.getElementById("tasks-container");
   const emptyState = document.getElementById("empty-state");
-  const statTotal = document.getElementById("stat-total");
-  const statPending = document.getElementById("stat-pending");
-  const statCompleted = document.getElementById("stat-completed");
-  const statOverdue = document.getElementById("stat-overdue");
+  const emptyStateAddBtn = document.getElementById("empty-state-add-btn");
   const searchInput = document.getElementById("search-input");
   const clearSearchBtn = document.getElementById("clear-search-btn");
   const resetFiltersBtn = document.getElementById("reset-filters-btn");
@@ -116,10 +105,46 @@ document.addEventListener("DOMContentLoaded", () => {
   const openNewTaskModalBtn = document.getElementById("open-new-task-modal-btn");
 
   // -----------------------------------------------------------------
+  // 1. Theme Management (Light / Dark with System Fallback)
+  // -----------------------------------------------------------------
+  function initTheme() {
+    const savedTheme = localStorage.getItem("stm_theme");
+    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initialTheme = savedTheme || (systemPrefersDark ? "dark" : "light");
+
+    applyTheme(initialTheme);
+
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener("click", () => {
+        const current = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = current === "dark" ? "light" : "dark";
+        applyTheme(next);
+      });
+    }
+
+    // Listen for system theme changes if not overridden
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+      if (!localStorage.getItem("stm_theme")) {
+        applyTheme(e.matches ? "dark" : "light");
+      }
+    });
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("stm_theme", theme);
+    if (themeToggleIcon) {
+      themeToggleIcon.textContent = theme === "light" ? "☀️" : "🌙";
+    }
+  }
+
+  // -----------------------------------------------------------------
   // Initial Setup
   // -----------------------------------------------------------------
   function init() {
+    initTheme();
     renderCurrentDate();
+    showLoadingSkeletons();
     fetchTasksAndStats();
     fetchProgressAnalytics();
     fetchReminders();
@@ -132,6 +157,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const month = now.toLocaleDateString(undefined, { month: "short" });
     const year = now.getFullYear();
     currentDateDisplay.textContent = `${day} ${month} ${year}`;
+  }
+
+  function showLoadingSkeletons() {
+    if (tasksContainer && tasks.length === 0) {
+      tasksContainer.innerHTML = `
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      `;
+    }
+  }
+
+  function showErrorBanner(msg = "Unable to load tasks") {
+    if (errorBanner) {
+      if (errorBannerText) errorBannerText.textContent = msg;
+      errorBanner.style.display = "flex";
+    }
+  }
+
+  function hideErrorBanner() {
+    if (errorBanner) {
+      errorBanner.style.display = "none";
+    }
   }
 
   // -----------------------------------------------------------------
@@ -166,18 +214,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // Toast Notifications (Deduplicated & Stack-Protected)
+  // Toast Notifications (Deduplicated & Smooth Animation)
   // -----------------------------------------------------------------
   function showToast(message, type = "success") {
     const container = document.getElementById("toast-container");
     if (!container || !message) return;
 
-    // Prevent duplicate stacked toasts with the exact same message
+    // Prevent duplicate stacked toasts
     const existing = container.querySelectorAll(".toast");
     for (const t of existing) {
-      if (t.getAttribute("data-message") === message) {
-        return; // Already actively showing this notification
-      }
+      if (t.getAttribute("data-message") === message) return;
     }
 
     const toast = document.createElement("div");
@@ -189,9 +235,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setTimeout(() => {
       toast.style.opacity = "0";
-      toast.style.transform = "translateY(10px)";
+      toast.style.transform = "translateY(12px) scale(0.95)";
       setTimeout(() => toast.remove(), 250);
-    }, 3000);
+    }, 3200);
   }
 
   function escapeHtml(str) {
@@ -227,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // 1. TASKS FEED VIEW
+  // 2. TASKS FEED VIEW
   // -----------------------------------------------------------------
   async function fetchTasksAndStats() {
     try {
@@ -240,32 +286,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const allTasks = await res.json();
       tasks = allTasks;
       hideErrorBanner();
-      renderStats(allTasks);
       applyCurrentFilters();
     } catch (err) {
       console.error("fetchTasksAndStats error:", err);
       showErrorBanner("Unable to load tasks");
     }
-  }
-
-  function renderStats(allTasks) {
-    const total = allTasks.length;
-    const completed = allTasks.filter(t => t.status === "Completed").length;
-    const pending = total - completed;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const overdueCount = allTasks.filter(t => {
-      if (t.status === "Completed" || !t.due_date) return false;
-      const due = new Date(t.due_date + "T00:00:00");
-      return due.getTime() < today.getTime();
-    }).length;
-
-    if (statTotal) statTotal.textContent = total;
-    if (statPending) statPending.textContent = pending;
-    if (statCompleted) statCompleted.textContent = completed;
-    if (statOverdue) statOverdue.textContent = overdueCount;
   }
 
   async function applyCurrentFilters() {
@@ -301,20 +326,22 @@ document.addEventListener("DOMContentLoaded", () => {
     tasksContainer.innerHTML = "";
 
     if (taskList.length === 0) {
-      if (emptyState) emptyState.style.display = "block";
+      if (emptyState) emptyState.style.display = "flex";
       return;
     }
     if (emptyState) emptyState.style.display = "none";
 
-    taskList.forEach(task => {
+    taskList.forEach((task, index) => {
       const card = document.createElement("div");
       card.className = `task-card ${task.status === "Completed" ? "is-completed" : ""}`;
       card.setAttribute("data-id", task.id);
+      card.style.animationDelay = `${Math.min(index * 35, 300)}ms`;
 
       const dueInfo = formatDueDate(task.due_date);
       const isCompleted = task.status === "Completed";
+      const priorityClass = `priority-${task.priority.toLowerCase()}`;
 
-      // Course code extraction helper (e.g., CS201, CS-101, [MATH302], EE200)
+      // Course code regex extraction (e.g. CS201, CS-101, [MATH302], EE200)
       const courseMatch = task.title.match(/^(\[?([A-Z]{2,5}\s?-?\d{2,4})\]?:?\s*)/i);
       let displayTitle = task.title;
       let courseTagHtml = "";
@@ -327,8 +354,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       card.innerHTML = `
         <div class="task-card-header">
-          <label class="task-checkbox-label">
-            <input type="checkbox" class="task-custom-checkbox" ${isCompleted ? "checked" : ""} title="Mark complete/pending">
+          <label class="task-checkbox-label" title="Mark as ${isCompleted ? 'pending' : 'completed'}">
+            <input type="checkbox" class="task-custom-checkbox" ${isCompleted ? "checked" : ""}>
           </label>
           <div class="task-card-main-col">
             <div class="task-card-title-row">
@@ -336,14 +363,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${courseTagHtml}
                 <h4 class="task-title">${escapeHtml(displayTitle)}</h4>
               </div>
-              <div class="task-priority-indicator">
+              <div class="task-priority-indicator ${priorityClass}">
                 <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
                 <span>${escapeHtml(task.priority)}</span>
               </div>
             </div>
             ${task.description ? `<p class="task-description">${escapeHtml(task.description)}</p>` : ""}
             <div class="task-card-footer">
-              ${dueInfo.text ? `<div class="task-due-tag ${dueInfo.className}"><span>${escapeHtml(dueInfo.text)}</span></div>` : `<div></div>`}
+              ${dueInfo.text ? `<div class="task-due-tag ${dueInfo.className}"><span>📅 ${escapeHtml(dueInfo.text)}</span></div>` : `<div></div>`}
               <div class="task-card-actions">
                 <button type="button" class="btn-action edit-task-btn" title="Edit task">Edit</button>
                 <button type="button" class="btn-action btn-action-danger delete-task-btn" title="Delete task">Delete</button>
@@ -353,7 +380,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
-      // Checkbox event
+      // Checkbox event with tactile micro-animation
       const checkbox = card.querySelector(".task-custom-checkbox");
       checkbox.addEventListener("change", () => toggleComplete(task.id, checkbox.checked));
 
@@ -370,7 +397,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // 2. CALENDAR VIEW
+  // 3. CALENDAR VIEW
   // -----------------------------------------------------------------
   async function fetchCalendarData(month, year) {
     try {
@@ -441,7 +468,7 @@ document.addEventListener("DOMContentLoaded", () => {
       calDaysGrid.appendChild(cell);
     }
 
-    // Auto-inspect today or selected date
+    // Auto-inspect selected date or today
     if (selectedCalDate && calendarData[selectedCalDate]) {
       inspectCalendarDay(selectedCalDate, calendarData[selectedCalDate]);
     } else if (calendarData[todayStr]) {
@@ -464,17 +491,21 @@ document.addEventListener("DOMContentLoaded", () => {
     inspectorTasksList.innerHTML = "";
     dayTasks.forEach(task => {
       const item = document.createElement("div");
-      item.className = "task-card";
+      item.className = `task-card ${task.status === "Completed" ? "is-completed" : ""}`;
       item.innerHTML = `
         <div class="task-card-header">
-          <div class="task-checkbox-title">
+          <label class="task-checkbox-label">
             <input type="checkbox" class="task-custom-checkbox" ${task.status === "Completed" ? "checked" : ""}>
+          </label>
+          <div class="task-card-main-col">
             <span class="task-title" style="font-size:0.88rem;">${escapeHtml(task.title)}</span>
+            <div class="task-card-footer">
+              <span class="task-priority-indicator priority-${task.priority.toLowerCase()}">
+                <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
+                ${escapeHtml(task.priority)}
+              </span>
+            </div>
           </div>
-          <span class="task-priority-label">
-            <span class="priority-dot dot-${task.priority.toLowerCase()}"></span>
-            ${escapeHtml(task.priority)}
-          </span>
         </div>
       `;
 
@@ -489,7 +520,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // 3. PROGRESS & LEARNING ANALYTICS VIEW
+  // 4. PROGRESS & LEARNING ANALYTICS VIEW
   // -----------------------------------------------------------------
   async function fetchProgressAnalytics() {
     try {
@@ -547,11 +578,11 @@ document.addEventListener("DOMContentLoaded", () => {
         col.className = "chart-col";
 
         const heightPercent = Math.round((day.count / maxCount) * 100);
-        const displayHeight = day.count > 0 ? Math.max(18, heightPercent) : 5;
+        const displayHeight = day.count > 0 ? Math.max(20, heightPercent) : 6;
 
         col.innerHTML = `
           <span class="chart-col-count">${day.count}</span>
-          <div class="chart-bar-wrap">
+          <div class="chart-bar-wrap" title="${day.count} tasks completed on ${day.date}">
             <div class="chart-bar-fill" style="height: ${displayHeight}%;"></div>
           </div>
           <span class="chart-col-label">${escapeHtml(day.day_name)}</span>
@@ -562,7 +593,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // 4. REMINDERS SYSTEM
+  // 5. REMINDERS SYSTEM
   // -----------------------------------------------------------------
   async function fetchReminders() {
     try {
@@ -598,7 +629,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="reminder-item-title">${escapeHtml(item.title)}</span>
         <div class="reminder-item-meta">
           <span class="reminder-reason-tag">${escapeHtml(item.reminder_reason)}</span>
-          <span class="task-priority-label">
+          <span class="task-priority-indicator priority-${item.priority.toLowerCase()}">
             <span class="priority-dot dot-${item.priority.toLowerCase()}"></span>
             ${escapeHtml(item.priority)}
           </span>
@@ -622,7 +653,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (permission === "granted") {
           showToast("Desktop alerts enabled!", "success");
           new Notification("Student Task Manager", {
-            body: "You will now receive desktop notifications for upcoming coursework deadlines.",
+            body: "You will now receive notifications for upcoming coursework deadlines.",
             icon: "🎓"
           });
         }
@@ -631,7 +662,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // -----------------------------------------------------------------
-  // 5. MODAL MANAGEMENT (Add / Edit Task)
+  // 6. MODAL MANAGEMENT (Add / Edit Task)
   // -----------------------------------------------------------------
   function openTaskModal(task = null) {
     taskForm.reset();
@@ -684,7 +715,7 @@ document.addEventListener("DOMContentLoaded", () => {
       isSubmittingTask = true;
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.style.opacity = "0.7";
+        submitBtn.textContent = "Saving...";
       }
 
       let response;
@@ -710,27 +741,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to save task");
 
-      showToast(taskId ? "Task updated successfully!" : "Task added successfully!", "success");
+      showToast(taskId ? "Task updated successfully!" : "Task created successfully!", "success");
       closeTaskModal();
 
-      // Refresh current view & reminders
+      // Refresh data
       fetchTasksAndStats();
+      fetchProgressAnalytics();
       fetchReminders();
       if (currentView === "calendar") fetchCalendarData(currentCalMonth, currentCalYear);
-      if (currentView === "progress") fetchProgressAnalytics();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
       isSubmittingTask = false;
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.style.opacity = "1";
+        submitBtn.textContent = "Save Task";
       }
     }
   });
 
   // -----------------------------------------------------------------
-  // 6. ACTIONS: Complete & Delete
+  // 7. ACTIONS: Complete & Delete
   // -----------------------------------------------------------------
   async function toggleComplete(taskId, isChecked) {
     try {
@@ -745,9 +776,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showToast(data.message, "success");
       fetchTasksAndStats();
+      fetchProgressAnalytics();
       fetchReminders();
       if (currentView === "calendar") fetchCalendarData(currentCalMonth, currentCalYear);
-      if (currentView === "progress") fetchProgressAnalytics();
     } catch (err) {
       showToast(err.message, "error");
       fetchTasksAndStats();
@@ -768,16 +799,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showToast("Task deleted successfully", "success");
       fetchTasksAndStats();
+      fetchProgressAnalytics();
       fetchReminders();
       if (currentView === "calendar") fetchCalendarData(currentCalMonth, currentCalYear);
-      if (currentView === "progress") fetchProgressAnalytics();
     } catch (err) {
       showToast(err.message, "error");
     }
   }
 
   // -----------------------------------------------------------------
-  // 7. EVENT LISTENERS
+  // 8. EVENT LISTENERS
   // -----------------------------------------------------------------
   function attachEventListeners() {
     // Navigation Tabs
@@ -826,6 +857,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Modal Triggers
     if (openNewTaskModalBtn) openNewTaskModalBtn.addEventListener("click", () => openTaskModal(null));
+    if (emptyStateAddBtn) emptyStateAddBtn.addEventListener("click", () => openTaskModal(null));
     if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeTaskModal);
     if (modalCancelBtn) modalCancelBtn.addEventListener("click", closeTaskModal);
     if (taskModal) {
@@ -843,7 +875,7 @@ document.addEventListener("DOMContentLoaded", () => {
         clearTimeout(searchDebounceTimeout);
         searchDebounceTimeout = setTimeout(() => {
           applyCurrentFilters();
-        }, 250);
+        }, 200);
       });
     }
 

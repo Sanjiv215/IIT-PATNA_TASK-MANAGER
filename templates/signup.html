@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +10,16 @@
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="auth-body">
+  <!-- Atmospheric Glow Accent -->
+  <div class="ambient-glow"></div>
+
+  <!-- Top Theme Switcher -->
+  <div class="auth-nav-top">
+    <button type="button" class="btn-theme-toggle" id="theme-toggle-btn" title="Toggle Light / Dark Theme" aria-label="Toggle theme">
+      <span id="theme-toggle-icon">🌙</span>
+    </button>
+  </div>
+
   <div class="auth-wrapper">
     <div class="auth-header-brand">
       <div class="auth-brand-row">
@@ -17,12 +27,12 @@
         <span class="brand-wordmark">TASK</span>
         <span class="brand-tag">STUDENT OS</span>
       </div>
-      <p class="auth-tagline">Create your student account to get organized</p>
+      <p class="auth-tagline">Create your student workspace to get organized</p>
     </div>
 
     <div class="card auth-card">
       <h2>Create Your Account</h2>
-      <p class="auth-subtext">Join thousands of students staying on top of coursework & assignments.</p>
+      <p class="auth-subtext">Join students staying ahead of coursework & assignment deadlines.</p>
 
       {% if error %}
       <div class="alert alert-danger" role="alert">
@@ -70,7 +80,13 @@
               required 
               autocomplete="new-password"
             >
-            <button type="button" class="btn-toggle-pw" id="toggle-signup-pw" title="Show / Hide Password">👁️</button>
+            <button type="button" class="btn-toggle-pw" id="toggle-signup-pw" title="Show / Hide Password" aria-label="Show password">👁️</button>
+          </div>
+          <!-- Live Password Strength Bar -->
+          <div class="pw-strength-meter" id="pw-meter">
+            <div class="pw-strength-bar" id="bar-1"></div>
+            <div class="pw-strength-bar" id="bar-2"></div>
+            <div class="pw-strength-bar" id="bar-3"></div>
           </div>
         </div>
 
@@ -88,7 +104,7 @@
         </div>
 
         <button type="submit" class="btn btn-primary btn-block btn-auth">
-          <span>Create Account</span>
+          <span>Create Account &rarr;</span>
         </button>
       </form>
 
@@ -99,6 +115,24 @@
   </div>
 
   <script>
+    // Theme Manager for Auth Page
+    const currentTheme = localStorage.getItem("stm_theme") || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    const themeIcon = document.getElementById("theme-toggle-icon");
+    if (themeIcon) themeIcon.textContent = currentTheme === "light" ? "☀️" : "🌙";
+
+    const themeToggleBtn = document.getElementById("theme-toggle-btn");
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener("click", () => {
+        const active = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = active === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("stm_theme", next);
+        if (themeIcon) themeIcon.textContent = next === "light" ? "☀️" : "🌙";
+      });
+    }
+
+    // Password Toggle
     const toggleBtn = document.getElementById("toggle-signup-pw");
     const pwInput = document.getElementById("signup-password");
     if (toggleBtn && pwInput) {
@@ -106,6 +140,32 @@
         const isPassword = pwInput.type === "password";
         pwInput.type = isPassword ? "text" : "password";
         toggleBtn.textContent = isPassword ? "🙈" : "👁️";
+      });
+    }
+
+    // Live Password Strength Calculator
+    const bar1 = document.getElementById("bar-1");
+    const bar2 = document.getElementById("bar-2");
+    const bar3 = document.getElementById("bar-3");
+    if (pwInput && bar1 && bar2 && bar3) {
+      pwInput.addEventListener("input", (e) => {
+        const val = e.target.value;
+        bar1.className = "pw-strength-bar";
+        bar2.className = "pw-strength-bar";
+        bar3.className = "pw-strength-bar";
+
+        if (val.length === 0) return;
+
+        if (val.length < 8) {
+          bar1.classList.add("weak");
+        } else if (val.length >= 8 && /[A-Z]/.test(val) && /[0-9]/.test(val)) {
+          bar1.classList.add("strong");
+          bar2.classList.add("strong");
+          bar3.classList.add("strong");
+        } else {
+          bar1.classList.add("medium");
+          bar2.classList.add("medium");
+        }
       });
     }
   </script>

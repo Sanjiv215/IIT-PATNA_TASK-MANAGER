@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +10,16 @@
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="auth-body">
+  <!-- Atmospheric Glow Accent -->
+  <div class="ambient-glow"></div>
+
+  <!-- Top Theme Switcher -->
+  <div class="auth-nav-top">
+    <button type="button" class="btn-theme-toggle" id="theme-toggle-btn" title="Toggle Light / Dark Theme" aria-label="Toggle theme">
+      <span id="theme-toggle-icon">🌙</span>
+    </button>
+  </div>
+
   <div class="auth-wrapper">
     <div class="auth-header-brand">
       <div class="auth-brand-row">
@@ -56,12 +66,12 @@
               required 
               autocomplete="current-password"
             >
-            <button type="button" class="btn-toggle-pw" id="toggle-login-pw" title="Show / Hide Password">👁️</button>
+            <button type="button" class="btn-toggle-pw" id="toggle-login-pw" title="Show / Hide Password" aria-label="Show password">👁️</button>
           </div>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block btn-auth">
-          <span>Log In</span>
+          <span>Log In &rarr;</span>
         </button>
       </form>
 
@@ -72,6 +82,24 @@
   </div>
 
   <script>
+    // Theme Manager for Auth Page
+    const currentTheme = localStorage.getItem("stm_theme") || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    const themeIcon = document.getElementById("theme-toggle-icon");
+    if (themeIcon) themeIcon.textContent = currentTheme === "light" ? "☀️" : "🌙";
+
+    const themeToggleBtn = document.getElementById("theme-toggle-btn");
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener("click", () => {
+        const active = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = active === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("stm_theme", next);
+        if (themeIcon) themeIcon.textContent = next === "light" ? "☀️" : "🌙";
+      });
+    }
+
+    // Password Toggle
     const toggleBtn = document.getElementById("toggle-login-pw");
     const pwInput = document.getElementById("login-password");
     if (toggleBtn && pwInput) {

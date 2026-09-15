@@ -840,5 +840,6 @@ if __name__ == "__main__":
     if not os.path.exists(DEFAULT_DB_PATH):
         init_db()
     debug_mode = os.environ.get("FLASK_DEBUG", "0").lower() in ("1", "true")
-    print(f"Starting Student Task Manager server (debug={debug_mode}) on http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=debug_mode)
+    port = int(os.environ.get("PORT", 5050))
+    print(f"Starting Student Task Manager server (debug={debug_mode}) on http://127.0.0.1:{port}")
+    app.run(host="127.0.0.1", port=port, debug=debug_mode)
