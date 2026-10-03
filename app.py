@@ -329,26 +329,37 @@ def create_app(test_config=None):
         email = (data.get("email") or "").strip().lower()
         password = data.get("password") or ""
         confirm_password = data.get("confirm_password") or ""
+        client_identifier = f"signup_{request.remote_addr}_{email}"
+
+        if is_rate_limited(client_identifier):
+            error_msg = f"Too many failed signup attempts. Please wait {LOCKOUT_DURATION} seconds."
+            if is_json:
+                return jsonify({"error": error_msg}), 429
+            return render_template("signup.html", error=error_msg, name=name, email=email), 429
 
         if not name:
+            record_failed_attempt(client_identifier)
             error_msg = "Your full name is required."
             if is_json:
                 return jsonify({"error": error_msg}), 400
             return render_template("signup.html", error=error_msg, name=name, email=email), 400
 
         if not email or not EMAIL_REGEX.match(email):
+            record_failed_attempt(client_identifier)
             error_msg = "Please enter a valid email address."
             if is_json:
                 return jsonify({"error": error_msg}), 400
             return render_template("signup.html", error=error_msg, name=name, email=email), 400
 
-        if len(password) < 8:
-            error_msg = "Password must be at least 8 characters long."
+        if len(password) < 8 or not re.search(r"[A-Z]", password) or not re.search(r"[0-9]", password):
+            record_failed_attempt(client_identifier)
+            error_msg = "Password must be at least 8 characters long and contain at least one uppercase letter and one number."
             if is_json:
                 return jsonify({"error": error_msg}), 400
             return render_template("signup.html", error=error_msg, name=name, email=email), 400
 
         if password != confirm_password:
+            record_failed_attempt(client_identifier)
             error_msg = "Passwords do not match."
             if is_json:
                 return jsonify({"error": error_msg}), 400
@@ -358,11 +369,13 @@ def create_app(test_config=None):
         cursor = db.cursor()
         cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         if cursor.fetchone() is not None:
+            record_failed_attempt(client_identifier)
             error_msg = "An account with this email already exists."
             if is_json:
                 return jsonify({"error": error_msg}), 400
             return render_template("signup.html", error=error_msg, name=name, email=email), 400
 
+        reset_login_attempts(client_identifier)
         pw_hash = generate_password_hash(password)
         cursor.execute(
             "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
@@ -594,17 +607,16 @@ def create_app(test_config=None):
         cursor = db.cursor()
 
         if not query_param:
-            cursor.execute(f"SELECT * FROM tasks WHERE user_id = ? {DEFAULT_ORDER_BY}", (user_id,))
+            query_all = f"SELECT * FROM tasks WHERE user_id = ? {DEFAULT_ORDER_BY}"
+            cursor.execute(query_all, (user_id,))
         else:
             search_pattern = f"%{query_param}%"
-            cursor.execute(
-                f"""
+            query_search = f"""
                 SELECT * FROM tasks
                 WHERE user_id = ? AND (title LIKE ? OR description LIKE ?)
                 {DEFAULT_ORDER_BY}
-                """,
-                (user_id, search_pattern, search_pattern)
-            )
+                """
+            cursor.execute(query_search, (user_id, search_pattern, search_pattern))
 
         rows = cursor.fetchall()
         tasks = [row_to_dict(r) for r in rows]
